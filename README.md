@@ -10,7 +10,7 @@ This public repository contains only trusted publishing code. Blog content, imag
 4. 在 Actions run 的 Summary 中核对 run、commit、hash 与目标，由 Stefan 在 **Review deployments → preview** 人工批准。
 5. publish 重新下载同一包、再次检查 main 未变，然后只上传 `release-preview`，逐文件和历史 URL 验收。成功记录为 GitHub Deployment；失败保持红色，不称为上线成功。
 
-手工立即触发（人和获授权的专用 Agent 都可用）：
+手工立即触发（维护者使用；日常Agent默认等待轮询，无需本仓库写权限）：
 
 ```sh
 gh workflow run publish-preview.yml --repo StefanZhang/blog-publisher --ref main -f build_run_id=latest
@@ -26,7 +26,7 @@ gh workflow run publish-preview.yml --repo StefanZhang/blog-publisher --ref main
 - `preview` Environment：仅 protected branches，StefanZhang 为 required reviewer，禁止管理员 bypass。允许 Stefan 批准自己手动发起的 run；日常 Agent 使用独立身份，不能是 Stefan 的 owner 会话。
 - repository secret `SOURCE_READ_TOKEN`：仅私有博客仓库，Actions **Read-only** 和 Contents **Read-only** 的 fine-grained PAT，不含写入、管理或其他仓库。设置到这里，不能设到博客仓库。
 - `preview` Environment secrets：`CLOUDFLARE_ACCOUNT_ID`、仅目标账户 **Cloudflare Pages Edit** 的 `CLOUDFLARE_API_TOKEN`。不要使用 Global API Key、GitHub owner OAuth 或临时 Wrangler OAuth 充当长期 CI secret。Pages 权限是账户级，`--branch`不是 IAM 隔离，所以预览也必须人批准。
-- 代码维护与日常 LLM 分离：日常 LLM 对本仓库最多只有 Actions read/write，不给 Contents write、Administration、Environment 审批。Actions write 本身不会使非 reviewer 成为审批人。
+- 代码维护与日常 LLM 分离：默认日常Agent对本仓库没有Actions/Contents写权限，轮询已能请求preview。若另行授权独立bot触发，必须验证它不是required reviewer；不要把Stefan本人签发的Actions-write PAT交给Agent，它仍代表Stefan，不能靠token名称或窄权限宣称无法审批。推荐独立App/bot只限私有源码库，日常Agent不持有owner会话。
 - 所有 secrets 通过 GitHub 设置界面/受控 CLI 写入，不贴在聊天、issue或日志里。记录 token 到期日，在到期前由维护者轮换并重跑预览。
 
 ## 固定策略与升级
@@ -41,4 +41,4 @@ Node 固定 `.nvmrc`；Actions固定commit SHA；Wrangler固定4.45.0。更新�
 
 工作流会拒绝已过期的控制仓库版本和管理员bypass，独立取回源码中的编码脚本、锁文件、Node版本和CI工作流并核对固定SHA。这样，日常内容/图片新增可以继续发布；编码器或构建工具链升级必须先审阅旧immutable资源兼容性，不能静默替换相同URL的字节。
 
-成功发布后仅上传无内容的JSON回执（run/commit/hash/deployment URL/文件与旧链接数量），保留90天；不上传私有站点包或源码。这不能替代封存包长期备份。
+本分支合并后，成功发布仅上传无内容的JSON回执（run/commit/hash/deployment URL/文件与旧链接数量），保留90天；不上传私有站点包或源码。这不能替代封存包长期备份。
