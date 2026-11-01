@@ -1,0 +1,3 @@
+# Routing for human review. Main requires a PR and passing check.
+# With one maintainer, GitHub cannot require the author to approve their own PR.
+* @StefanZhang

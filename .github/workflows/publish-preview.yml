@@ -1,0 +1,98 @@
+name: publish-sealed-preview
+run-name: Preview blog build ${{ inputs.build_run_id || 'latest main' }}
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful main build run ID, or latest
+        default: latest
+        required: true
+      artifact_hash:
+        description: Optional exact artifact SHA256 from source CI
+        required: false
+      retry:
+        description: Retry a previously requested build after checking its logs
+        type: boolean
+        default: false
+  schedule:
+    - cron: '*/15 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: blog-pages-preview
+  cancel-in-progress: false
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      deployments: write
+    outputs:
+      eligible: ${{ steps.inspect.outputs.eligible }}
+      build_run_id: ${{ steps.inspect.outputs.build_run_id }}
+      source_commit: ${{ steps.inspect.outputs.source_commit }}
+      artifact_hash: ${{ steps.inspect.outputs.artifact_hash }}
+      ledger_id: ${{ steps.inspect.outputs.ledger_id }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - id: inspect
+        run: node scripts/controller.mjs inspect
+        env:
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id || 'latest' }}
+          EXPECTED_HASH: ${{ inputs.artifact_hash }}
+          RETRY: ${{ inputs.retry }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  publish:
+    needs: inspect
+    if: needs.inspect.outputs.eligible == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment:
+      name: preview
+      url: https://release-preview.stefanzhang-com.pages.dev
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - name: Recheck approved artifact and current main
+        run: node scripts/controller.mjs stage
+        env:
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ needs.inspect.outputs.build_run_id }}
+          EXPECTED_HASH: ${{ needs.inspect.outputs.artifact_hash }}
+          EXPECTED_COMMIT: ${{ needs.inspect.outputs.source_commit }}
+      - name: Publish exact sealed bytes to preview only
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.45.0'
+          command: pages deploy .work/release/site --project-name=stefanzhang-com --branch=release-preview
+      - name: Verify all files, historical URLs and preview noindex
+        run: |
+          node scripts/release/verify.mjs .work/release --base https://release-preview.stefanzhang-com.pages.dev
+          node scripts/preview-headers.mjs
+      - name: Record preview result
+        if: always()
+        run: node scripts/controller.mjs finish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LEDGER_ID: ${{ needs.inspect.outputs.ledger_id }}
+          PUBLISH_RESULT: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

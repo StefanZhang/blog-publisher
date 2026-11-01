@@ -1,0 +1,25 @@
+{
+  "sourceRepo": "StefanZhang/stefans_blog",
+  "sourceWorkflow": ".github/workflows/deploy.yml",
+  "controllerRepo": "StefanZhang/blog-publisher",
+  "reviewer": "StefanZhang",
+  "branch": "main",
+  "previewBranch": "release-preview",
+  "previewOrigin": "https://release-preview.stefanzhang-com.pages.dev",
+  "config": {
+    "schema": 1,
+    "canonicalOrigin": "https://stefanzhang.com",
+    "pagesProject": "stefanzhang-com",
+    "productionBranch": "main",
+    "likesApi": "https://likes.stefanzhang.com",
+    "artalkServer": "https://comments.stefanzhang.com",
+    "beaconToken": "",
+    "wranglerVersion": "4.45.0"
+  },
+  "controlHashes": {
+    "_headers": "1d9a23042b6420610c190f2d0106a9dea1e8be3dc3c989c0497203f1ed356fbe",
+    "_redirects": "d42415d32b38511fde5831f4717c16d76ca073423443e59f269d8a056f8348ea",
+    "_worker.js": "e2182d379b7ef0253f425bd99d6f33598290e69e7248bc9e3abe8e2772a37b52",
+    "_routes.json": "196e17fc717d6cec24a7f15f85080857562d72d9bbb49e48023d29cbb66be485"
+  }
+}
