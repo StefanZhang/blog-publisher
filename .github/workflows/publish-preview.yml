@@ -78,6 +78,7 @@ jobs:
           EXPECTED_HASH: ${{ needs.inspect.outputs.artifact_hash }}
           EXPECTED_COMMIT: ${{ needs.inspect.outputs.source_commit }}
       - name: Publish exact sealed bytes to preview only
+        id: upload
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -88,6 +89,19 @@ jobs:
         run: |
           node scripts/release/verify.mjs .work/release --base https://release-preview.stefanzhang-com.pages.dev
           node scripts/preview-headers.mjs
+      - name: Record content-free deployment evidence
+        run: node scripts/receipt.mjs
+        env:
+          SOURCE_RUN: ${{ needs.inspect.outputs.build_run_id }}
+          EXPECTED_HASH: ${{ needs.inspect.outputs.artifact_hash }}
+          DEPLOYMENT_URL: ${{ steps.upload.outputs.deployment-url }}
+          DEPLOYMENT_ID: ${{ steps.upload.outputs.pages-deployment-id }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: preview-receipt-${{ github.run_id }}
+          path: .work/preview-receipt.json
+          if-no-files-found: error
+          retention-days: 90
       - name: Record preview result
         if: always()
         run: node scripts/controller.mjs finish

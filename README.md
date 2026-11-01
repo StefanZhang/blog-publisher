@@ -36,3 +36,9 @@ gh workflow run publish-preview.yml --repo StefanZhang/blog-publisher --ref main
 Node 固定 `.nvmrc`；Actions固定commit SHA；Wrangler固定4.45.0。更新通过本控制仓库PR及其测试进行。可信 verifier 来自博客已审阅提交34adb9d；在这里独立维护，不从待发布包加载代码。
 
 本入口只做演示站静态验收。点赞/阅读量、D1、Artalk、生产审批和DNS切换不在本轮自动化中。正式发布将来必须以同一包的完整服务验收和独立人工批准为前提，不能把本入口的 static receipt 当作 full receipt。
+
+## 发布审计加固（待审阅分支）
+
+工作流会拒绝已过期的控制仓库版本和管理员bypass，独立取回源码中的编码脚本、锁文件、Node版本和CI工作流并核对固定SHA。这样，日常内容/图片新增可以继续发布；编码器或构建工具链升级必须先审阅旧immutable资源兼容性，不能静默替换相同URL的字节。
+
+成功发布后仅上传无内容的JSON回执（run/commit/hash/deployment URL/文件与旧链接数量），保留90天；不上传私有站点包或源码。这不能替代封存包长期备份。

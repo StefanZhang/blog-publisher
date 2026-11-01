@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises';import path from 'node:path';import {spawnSync} from 'node:child_process';import {createHash} from 'node:crypto';
-import {assertRun,assertRecord,assertProtection} from './policy.mjs';import {checkSeal} from './release/files.mjs';
+import {assertRun,assertRecord,assertProtection,assertSourceFile} from './policy.mjs';import {checkSeal} from './release/files.mjs';
 const policy=JSON.parse(await fs.readFile(new URL('../policy.json',import.meta.url),'utf8'));
 const command=process.argv[2], root=path.resolve('.work');
 const readToken=process.env.SOURCE_READ_TOKEN, ownToken=process.env.GH_TOKEN;
@@ -14,7 +14,7 @@ async function emit(data){
 }
 async function protect(){
  if(process.env.GITHUB_REPOSITORY!==policy.controllerRepo||process.env.GITHUB_REF!=='refs/heads/main')throw Error('Publishing runs only on controller main');
- assertProtection(await api('branches/main',true),await api('environments/preview',true),policy);
+ assertProtection(await api('branches/main',true),await api('environments/preview',true),policy,process.env.GITHUB_SHA);
 }
 async function currentRun(){
  const main=(await api('branches/main')).commit.sha;
@@ -24,6 +24,8 @@ async function currentRun(){
  if(!run)return null;assertRun(run,main,policy);return run;
 }
 async function download(run){
+ for(const name of Object.keys(policy.sourceFileHashes)){const file=await api('contents/'+name+'?ref='+run.head_sha);if(file.encoding!=='base64')throw Error('Unexpected source file response');assertSourceFile(name,Buffer.from(file.content,'base64'),policy);}
+
  const artifacts=(await api('actions/runs/'+run.id+'/artifacts?per_page=100')).artifacts.filter(a=>a.name==='sealed-'+run.id&&!a.expired);
  if(artifacts.length!==1)throw Error('No unique unexpired sealed main artifact; rebuild source main');
  const artifact=artifacts[0];if(artifact.size_in_bytes>250*1024*1024||!/^sha256:[a-f0-9]{64}$/.test(artifact.digest||''))throw Error('Artifact size/digest policy failed');
