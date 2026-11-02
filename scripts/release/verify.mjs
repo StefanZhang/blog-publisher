@@ -1,13 +1,13 @@
 import fs from 'node:fs/promises';import path from 'node:path';
 import {atomicJson,checkSeal,digest} from './files.mjs';
 import {hasLocalImagePolicy} from '../lib/image-refs.mjs';
+import {verificationTarget,verifyTargetHealth} from './target-policy.mjs';
 const release=path.resolve(process.argv[2]||'');const baseIndex=process.argv.indexOf('--base');
 if(!process.argv[2]||baseIndex<0)throw new Error('Usage: npm run release:verify -- <release-directory> --base <https-origin> [--full] [--local]');
-const base=new URL(process.argv[baseIndex+1]);const full=process.argv.includes('--full'),local=process.argv.includes('--local');
-if(base.pathname!=='/'||base.search||base.hash)throw new Error('Use an origin, not a path');
+const full=process.argv.includes('--full'),local=process.argv.includes('--local');
 const record=await checkSeal(release);
-if(local){if(!['localhost','127.0.0.1'].includes(base.hostname))throw new Error('--local only permits loopback');}
-else if(base.protocol!=='https:'||![new URL(record.config.canonicalOrigin).hostname,record.config.pagesProject+'.pages.dev'].includes(base.hostname)&&!base.hostname.endsWith('.'+record.config.pagesProject+'.pages.dev'))throw new Error('Unexpected preview/production origin');
+const target=verificationTarget(process.argv[baseIndex+1],record.config,{local});
+const {base}=target;
 if(full&&record.migrationGaps.length)throw new Error('Full release blocked by migration gaps: '+record.migrationGaps.join('; '));
 const failures=[];let checked=0,next=0;
 const urls=Object.entries(record.files).filter(([name])=>!['_headers','_redirects','_worker.js','_routes.json'].includes(name));
@@ -30,8 +30,9 @@ await Promise.all(Array.from({length:6},async()=>{while(next<urls.length){
  checked++;if(checked%500===0)console.log('verified files',checked,'/',urls.length);
 }}));
 const cases=JSON.parse(await fs.readFile(path.join(release,'legacy-urls.json'),'utf8'));
-// Zone Single Redirects apply to the canonical host, not Pages preview domains.
-if(!local && base.origin===record.config.canonicalOrigin)cases.push(...JSON.parse(await fs.readFile(path.join(release,'query-urls.json'),'utf8')));
+// .com Zone redirects and .cn local routing must both cover historical queries.
+// Pages preview and the development server do not implement these host rules.
+if(target.queries)cases.push(...JSON.parse(await fs.readFile(path.join(release,'query-urls.json'),'utf8')));
 for(const c of cases){
  let url=new URL(c.url,base),response;const seen=new Set();let redirects=0;
  try{
@@ -49,6 +50,7 @@ for(const c of cases){
  }catch(error){failures.push({url:c.url,error:error.message});}
 }
 try{const r=await fetch(new URL('/__release_missing_'+record.artifactHash.slice(0,12),base),{redirect:'manual'});if(r.status!==404)throw new Error('Missing page does not return 404');await r.body?.cancel();}catch(error){failures.push({url:'missing-page',error:error.message});}
+try{await verifyTargetHealth(target);}catch(error){failures.push({url:'/healthz',error:error.message});}
 const services=[];
 if(full){
  const origins=[...new Set([record.config.canonicalOrigin,base.origin])];

@@ -1,0 +1,11 @@
+[Unit]
+Description=Check the approved public CN deployment every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+RandomizedDelaySec=30
+Unit=stefan-blog-cn-pull.service
+
+[Install]
+WantedBy=timers.target

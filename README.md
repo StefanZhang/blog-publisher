@@ -7,8 +7,10 @@ This public repository contains only trusted publishing code. Blog content, imag
 1. LLM 在私有博客仓库创建内容 PR；源码 CI 检查后，由维护者合并。
 2. 成功 main CI 上传临时artifact（3天）并将原ZIP长期保存到私有Release `sealed-<run-id>-<attempt>`；归档job失败则整个run失败。本控制仓库每15分钟检查一次最新 main 构建；GitHub schedule 可能延迟，不承诺实时。
 3. inspect 只读私有Release，核对tag/run/attempt/commit并下载校验原ZIP摘要、源码 commit、封存 SHA、无迁移缺口和固定目标。它不执行包内脚本，不构建文章或图片。
-4. 在 Actions run 的 Summary 中核对 run、commit、hash 与目标，由 Stefan 在 **Review deployments → preview** 人工批准。
-5. publish 重新下载同一包、再次检查 main 未变，然后只上传 `release-preview`，对固定部署URL和别名分别逐文件、历史URL及noindex验收。成功记录为 GitHub Deployment；失败保持红色，不称为上线成功。
+4. 在 Actions run 的 Summary 中核对 run、commit、hash 与目标，由 Stefan 在 **Review deployments → preview** 人工批准；这次批准涵盖预览验收成功后对公开 `.cn` 的更新交接。
+5. publish 重新下载同一包、再次检查 main 未变，上传 `release-preview`，对固定部署URL和别名分别逐文件、历史URL及noindex验收，并上传兼容 schema 2 的无内容 preview receipt。
+6. 可信 `cn-handoff.mjs` 重新校验封存包、两个URL回执和交付manifest，创建 `environment=cn-pilot` 的 GitHub Deployment元数据及success状态。它不向VPS推送，也不携带SSH或新的Secret。
+7. 香港端匿名读取该元数据，等整个publisher run **completed/success** 且attempt/commit/main/workflow身份吻合后，下载固定URL上的完整静态文件并独立验收、切换。handoff成功不证明VPS已安装；以VPS安装回执和 `.cn` 实际验收为准。
 
 手工立即触发（维护者使用；日常Agent默认等待轮询，无需本仓库写权限）：
 
@@ -33,9 +35,9 @@ gh workflow run publish-preview.yml --repo StefanZhang/blog-publisher --ref main
 
 `policy.json` 固定来源仓库/工作流、目标、配置及四个控制文件的 SHA。普通文章新增和图片更新自动沿用；若模板/规则/边缘处理导致 `_worker.js`、`_routes.json`、`_redirects` 或 `_headers` 改变，发布会失败，维护者须单独审阅并更新策略。不能从待发布包自动学习新 hash。
 
-Node 固定 `.nvmrc`；Actions固定commit SHA；Wrangler固定4.45.0。更新通过本控制仓库PR及其测试进行。可信 verifier 来自博客已审阅提交34adb9d；在这里独立维护，不从待发布包加载代码。
+Node 固定 `.nvmrc`；Actions固定commit SHA；Wrangler固定4.45.0。更新通过本控制仓库PR及其测试进行。可信 verifier 与交付manifest校验器在这里独立维护；不从待发布包加载代码。
 
-本入口只做演示站静态验收。点赞/阅读量、D1、Artalk、生产审批和DNS切换不在本轮自动化中。正式发布将来必须以同一包的完整服务验收和独立人工批准为前提，不能把本入口的 static receipt 当作 full receipt。
+本入口做Pages预览静态验收与公开 `.cn` 静态更新交接；`.com`、DNS和独立点赞/阅读量/D1/Artalk服务不由此入口修改。`cn-pilot` 是交接记录，不是新增的workflow Environment审批或Secret容器；仍由已有preview人工审批约束。不能把本入口的static receipt当作full服务验收。
 
 ## 发布审计护栏
 
@@ -67,4 +69,21 @@ node scripts/restore.mjs "$DOWNLOAD_DIR" "$RESTORE_DIR" "$ARTIFACT_HASH"
 
 所有变量须替换为实际值，目录用绝对路径，RESTORE_DIR不得存在或处于Git工作树。restore核对ZIP SHA、数据型安全解包、site seal、source commit和辅助验收URL；不会执行包内脚本或部署。随后在私有源码checkout用其scripts/release/serve.mjs启动恢复包，另在publisher运行scripts/release/verify.mjs --local验收。公开仓库中不得保存完整ZIP。
 
-正常发布仍只接受current main；此工具不是一键线上回滚。失败上传仍可能已更新别名，须保留失败证据并由维护者按已验证包处理，不能伪造success或绕开current-main。production/DNS仍不启用。
+正常发布仍只接受current main；此工具不是一键线上回滚。失败上传仍可能已更新别名，须保留失败证据并由维护者按已验证包处理，不能伪造success或绕开current-main。.com production/DNS仍不启用；.cn回退也不能通过放宽这些门禁伪装成日常更新。
+
+
+## .cn 交接协议与失败边界
+
+`cn-pilot` Deployment payload仅有schema 1的固定字段：artifactHash、sourceCommit/sourceRun、controllerCommit/controllerRun/controllerAttempt、固定deploymentURL、manifest的path/bytes/sha256以及两个origin。它不含正文、图片、完整文件清单、私有ZIP地址或凭据。`/_delivery/manifest.json`自身随sealed site发布，最大8MiB；可信校验器拒绝额外字段、私有/危险路径、未绑定跳转参数，要求manifest文件集合与封存文件集合完全一致（排除四个Pages控制文件和manifest自身），并核对headers SHA。
+
+工作流先完成fixed+alias验收并上传旧schema 2回执，再发交接信号，最后执行finish。即使信号的status已是success，后续finish失败或run被取消时，香港端也必须拒绝。consumer至少同时核验：仓库、main、`.github/workflows/publish-preview.yml`、controllerCommit、run attempt、整个run completed/success、Deployment sha/ref及payload严格schema；不能用一个Deployment success替代这些条件。GitHub API创建的Deployment允许app:null，不通过伪造非空App字段建立信任。
+
+状态使用auto_inactive=false保留上次成功信号；旧信号不是无条件回滚授权。manifest下载必须使用payload中的固定deploymentURL，不跟随可变preview别名；验证hash后逐文件检查，拒绝执行包内程序或把nginx配置当作下载数据直接执行。实际VPS安装失败应保留前一版本并报告安装失败，不改变本交接记录的含义。
+
+此步骤仅复用既有GITHUB_TOKEN的Deployments:write、Contents:read、Checks:read；没有新增Contents:write、SSH、DNS或Cloudflare权限。日常LLM仍只维护私有源码内容，不能批准preview或登录VPS。
+
+### 独立的 .cn 安装身份验收
+
+`CN installation identity` 在 `publish-sealed-preview` 整个 run 成功结束后自动运行，也可手工输入具体 controller run ID 重验。它只读核对 main/workflow/attempt/commit 与对应 `cn-pilot` 交接，等待最多约 15 分钟，要求 `.cn` 的 manifest SHA/大小一致、首页与 manifest 的 SHA/大小一致、`healthz` 正确，以及 www 永久跳转到 apex 并保留路径/query；结束前再次核对 controller attempt。发布 job 被跳过的轮询记为 `not-applicable`，不会冒称已安装。
+
+回执只含版本元数据、计数和失败原因，保留 90 天；scope 固定 `installation-identity`、`filesChecked=1`，不是全文件、历史路由或独立服务验收。旧站即使 `/healthz` 正常，只要新 manifest 未安装就会超时失败。此 workflow 只有 Contents/Actions 只读权限，无部署密钥、不创建 Deployment、不执行接收器回滚；失败应查看 HK 接收器和退避状态。现有健康监控仍只证明站点可用性。

@@ -48,7 +48,7 @@ async function main(){
  if(command==='finish'){
   const id=process.env.LEDGER_ID;if(!/^\d+$/.test(id||''))return;
   const success=process.env.PUBLISH_RESULT==='success';
-  await api('deployments/'+id+'/statuses',true,{state:success?'success':'failure',environment_url:policy.previewOrigin,log_url:process.env.RUN_URL,description:success?'Sealed preview and all static checks passed':'Preview failed or cancelled; inspect run logs'});
+  await api('deployments/'+id+'/statuses',true,{state:success?'success':'failure',environment_url:policy.previewOrigin,log_url:process.env.RUN_URL,description:success?'Preview verified and CN handoff issued; VPS awaits completed run':'Preview failed or cancelled; inspect run logs'});
   return;
  }
  const run=await currentRun();if(!run){await summary('No successful CI build for current source main. Nothing deployed.');await emit({eligible:false});return;}
@@ -59,10 +59,10 @@ async function main(){
  }
  const {record}=await download(run);
  if(command==='inspect'){
-  const ledger=await api('deployments',true,{ref:process.env.GITHUB_SHA,environment:'preview-request',auto_merge:false,required_contexts:[],transient_environment:true,payload:{source_run_id:String(run.id),source_commit:run.head_sha,artifact_hash:record.artifactHash},description:'Approve sealed blog preview '+run.id});
+  const ledger=await api('deployments',true,{ref:process.env.GITHUB_SHA,environment:'preview-request',auto_merge:false,required_contexts:[],transient_environment:true,payload:{source_run_id:String(run.id),source_commit:run.head_sha,artifact_hash:record.artifactHash},description:'Approve preview and public .cn delivery '+run.id});
   await api('deployments/'+ledger.id+'/statuses',true,{state:'queued',log_url:process.env.RUN_URL,description:'Awaiting human preview environment approval'});
   await emit({eligible:true,build_run_id:run.id,source_commit:run.head_sha,artifact_hash:record.artifactHash,ledger_id:ledger.id});
-  await summary('## Ready for human preview approval\n\nSource run: https://github.com/'+policy.sourceRepo+'/actions/runs/'+run.id+'\n\nCommit: `'+run.head_sha+'`\n\nArtifact SHA256: `'+record.artifactHash+'`\n\nTarget: '+policy.previewOrigin+'\n\nOnly preview will be updated. No rebuild, production deployment, DNS, D1 or independent Worker changes. CI local acceptance is not remote acceptance.');
+  await summary('## Approval: preview verification then public .cn update\n\nSource run: https://github.com/'+policy.sourceRepo+'/actions/runs/'+run.id+'\n\nCommit: `'+run.head_sha+'`\n\nArtifact SHA256: `'+record.artifactHash+'`\n\nTarget: '+policy.previewOrigin+'\n\nApproval permits updating the public https://stefanzhang.cn site after fixed and alias preview verification. The Hong Kong consumer acts only after this entire controller run completes successfully and independently verifies the files. No rebuild, .com/DNS/D1/independent Worker changes. CI local acceptance is not remote acceptance; a handoff is not proof the VPS installed it.');
  }else if(command==='stage'){
   if(process.env.EXPECTED_COMMIT!==run.head_sha)throw Error('Source main changed after inspection; create a new request');
   await summary('Re-downloaded and checked the exact approved artifact.');

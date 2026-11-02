@@ -1,5 +1,5 @@
 name: publish-sealed-preview
-run-name: Preview blog build ${{ inputs.build_run_id || 'latest main' }}
+run-name: Preview then update public .cn - build ${{ inputs.build_run_id || 'latest main' }}
 on:
   workflow_dispatch:
     inputs:
@@ -104,6 +104,15 @@ jobs:
           path: .work/preview-receipt.json
           if-no-files-found: error
           retention-days: 90
+      - name: Authorize public .cn pull after complete workflow success
+        run: node scripts/cn-handoff.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ needs.inspect.outputs.build_run_id }}
+          EXPECTED_HASH: ${{ needs.inspect.outputs.artifact_hash }}
+          EXPECTED_COMMIT: ${{ needs.inspect.outputs.source_commit }}
+          DEPLOYMENT_URL: ${{ steps.upload.outputs.deployment-url }}
+          DEPLOYMENT_ID: ${{ steps.upload.outputs.pages-deployment-id }}
       - name: Record preview result
         if: always()
         run: node scripts/controller.mjs finish
