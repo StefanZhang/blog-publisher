@@ -33,7 +33,7 @@ export async function readProtection(token, repository, request = fetch) {
   });
   if (!response.ok) throw Error('Protection query HTTP ' + response.status);
   const payload = await response.json();
-  if (payload.errors?.length) throw Error('Protection query incomplete; cannot prove branch policy');
+  if (payload.errors?.length) throw Error('Protection query incomplete; cannot prove branch policy: ' + JSON.stringify(payload.errors.map(({type,path,message})=>({type,path,message}))).slice(0,1600));
   const ref = payload.data?.repository?.ref;
   if (!/^[a-f0-9]{40}$/.test(ref?.target?.oid || '') || !ref?.branchProtectionRule) {
     throw Error('Missing effective main protection rule');
@@ -43,6 +43,20 @@ export async function readProtection(token, repository, request = fetch) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const policy = JSON.parse(await fs.readFile(new URL('../policy.json', import.meta.url), 'utf8'));
-  assertBranchProtection(await readProtection(process.env.GH_TOKEN, policy.controllerRepo));
+  try {
+    assertBranchProtection(await readProtection(process.env.GH_TOKEN, policy.controllerRepo));
+  } catch (error) {
+    // Diagnose the documented non-admin view without treating it as the full
+    // rule or allowing a deployment whose strict/admin settings are unknown.
+    const [owner, name] = policy.controllerRepo.split('/');
+    const response = await fetch('https://api.github.com/graphql', {
+      method:'POST', headers:{Authorization:'Bearer '+process.env.GH_TOKEN,'Content-Type':'application/json'},
+      body:JSON.stringify({query:`query($owner:String!,$name:String!) { repository(owner:$owner,name:$name) { ref(qualifiedName:"refs/heads/main") { target { oid } refUpdateRule { pattern allowsDeletions allowsForcePushes requiredApprovingReviewCount requiredStatusCheckContexts requiresCodeOwnerReviews } } } }`,variables:{owner,name}}),
+      signal:AbortSignal.timeout(30000)
+    });
+    const probe=await response.json();
+    console.log('Read-only protection diagnostic',JSON.stringify({status:response.status,ref:probe.data?.repository?.ref,errors:probe.errors?.map(({type,path,message})=>({type,path,message}))}));
+    throw error;
+  }
   console.log('Live main protection verified using workflow token: CI, strict updates, admins, PR and no bypass/force/delete');
 }
