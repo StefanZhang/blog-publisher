@@ -95,3 +95,10 @@ node scripts/restore.mjs "$DOWNLOAD_DIR" "$RESTORE_DIR" "$ARTIFACT_HASH"
 `services-receipt.json` 只记录包/源码/控制器 run、attempt、commit、配置及 ID/page-key 集合的 SHA、时间、覆盖计数和固定错误码，不保留评论正文、姓名或邮箱。`cn-handoff.mjs` 必须独立匹配这份回执，要求完整覆盖、零失败且检查开始至交接不超过 15 分钟；缺回执、串包、重跑旧 attempt、服务不可达或缺 ID 均阻断交接。失败回执也保留 90 天；无新增服务凭据。固定部署/alias 已上传而服务门禁失败时，`.cn` 仍维持上一成功交接，不把预览更新当成 `.cn` 成功。
 
 这一门禁证明公开读取和浏览器 Origin 配置在验收时可用；不证明评论提交/验证码、点赞写入、历史评论迁移完整或持续可用性。服务首次部署和更新仍须独立审批、隔离写测试与迁移对账。不能靠跳过门禁、伪造回执或给本 workflow 增加服务管理凭据求绿。
+
+
+### 点赞 Worker 首次初始化与后续更新
+
+首次准备使用 `node scripts/likes-bootstrap-stage.mjs <source-run> <source-commit> <artifact-sha256> <new-absolute-temp-directory>`，仅在清洁、与远端 main 一致且可信检查成功的 publisher checkout 上运行。它通过 `gh` 只读核对真实 CI/私有归档，暂存固定 Worker、封存 ID、SQL 和首次配置；不伪造 Actions 环境、不执行远端写、不生成 SALT。配置关闭 workers.dev/preview URL、无路由、含每小时 cron；重复目标和桌面/同步/Git 路径会被拒绝。后续首次 schema → deploy → stable SALT → metadata → 单独服务域名 → GET 验收的准确步骤、失败边界见 [LIKES-DEPLOY.md](docs/LIKES-DEPLOY.md#maintainer-only-first-bootstrap-staging)。
+
+日常 `deploy-likes.yml` 仅更新已有 Worker。CI 使用只限 **Individual Worker `sfz-likes` 的 Workers Editor**，不授予所有 Worker、D1、DNS/routes 或 Pages 权限；不能把仅用于首次创建的维护者授权留作日常 CI 凭据。该角色仍具备所选 Worker 的配置/secret 管理能力，可信发布程序和人工审批必须保留。
