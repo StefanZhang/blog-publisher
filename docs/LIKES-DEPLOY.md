@@ -1,6 +1,6 @@
 # Independent likes Worker publication
 
-`deploy-likes.yml` is a manual, independent publication path for the existing `sfz-likes` Worker. It does not publish Pages, change DNS/routes/cron, execute D1 schema, create a database, or set/rotate SALT. The separate `CLOUDFLARE_LIKES_API_TOKEN` belongs only to the existing protected `preview` Environment and needs Worker script editing for this account; do not grant D1 or DNS/route writes and do not reuse or expand the Pages token.
+`deploy-likes.yml` is a manual, independent publication path for the existing `sfz-likes` Worker. It does not publish Pages, change DNS/routes/cron, execute D1 schema, create a database, or set/rotate SALT. The separate `CLOUDFLARE_LIKES_API_TOKEN` belongs only to the existing protected `preview` Environment. Create an account-owned token with **Workers → Editor → Individual Workers → sfz-likes** after that Worker exists; do not grant all-Worker/account-wide Scripts Edit, D1, DNS/routes, or Pages permissions. Do not reuse or expand the Pages token. The [current Workers authorization contract](https://developers.cloudflare.com/workers/authorization/workers/) permits this role to upload/deploy existing Worker versions with a D1 binding without separate D1 access. Editor can also manage that Worker’s settings/secrets, so the reviewed controller and human approval remain essential; it is not a version-only IAM capability.
 
 The workflow checks out trusted publisher `main` and requires its current successful controller check, protected main and the exact human reviewer enforced by `controller.mjs stage`. The entry point additionally requires the exact `deploy-likes.yml@refs/heads/main` workflow identity, `workflow_dispatch`, exact Node 24.22.2 and the expected job. `inspect` has no Cloudflare secret. Its content-free source run/commit, artifact hash, ID hash/count are the review subject. The `publish` job waits for the existing preview human approval and repeats current-main/sealed-source verification with those exact identities.
 
@@ -23,3 +23,52 @@ The exact commands are `npx --yes wrangler@4.45.0 versions upload --experimental
 On success, `.work/likes-receipt.json` records the source/controller identities, sealed artifact hash, previous/new Worker version, deployment ID and ID hash/count. Only this file is uploaded as the workflow artifact. Wrangler output is captured and never echoed, avoiding accidental provider/secret disclosure. HTTP acceptance uses GET only; it neither creates likes nor counts views. A failed upload leaves traffic unchanged. A failed promotion/postcheck attempts a guarded version rollback only when the active version is still this run's uploaded version: it revalidates both versions' ID metadata and rechecks the active deployment ID immediately before restoring the previous version to 100%. It then confirms that version and its IDs, repeats read-only HTTP acceptance, and checks the deployment did not change during acceptance. A detected concurrent maintainer deployment stops rollback without overwrite. Unreadable state, rollback command failure, identity mismatch or failed recovery acceptance produces a distinct inspection-required failure, not a success receipt. The workflow never reruns schema or rotates SALT. An interruption after promotion but before receipt may leave the new version active; the next run derives its monotonic ID baseline from that active version, not from a missing receipt.
 
 Tests: select Node 24.22.2, run `npm test`, `python3 -m unittest discover -s tests -p 'test_*.py'`, and pinned `actionlint`. Tests inject source/API/Wrangler boundaries and perform no remote writes. They do not replace the first isolated D1/Worker rehearsal or real post-deployment HTTP acceptance. GitHub concurrency serializes this workflow, and the active version is checked immediately before promotion; Cloudflare's deployment API provides no compare-and-swap here, so maintainers must not publish concurrently outside the workflow.
+
+
+## Maintainer-only first-bootstrap staging
+
+The ordinary `deploy-likes.yml` deliberately rejects an absent Worker. Use the separately reviewed local staging command below from a **clean publisher checkout whose HEAD equals current GitHub main and has a successful trusted `check`**, with Node 24.22.2 and authenticated `gh`. It does not read/export the gh token or impersonate `GITHUB_*`; it refuses an Actions context. Do not run it from a stale branch or an uncommitted checkout.
+
+```sh
+node scripts/likes-bootstrap-stage.mjs "$LIKES_SOURCE_RUN" "$LIKES_SOURCE_COMMIT" "$LIKES_ARTIFACT_SHA256" "$LIKES_BOOTSTRAP_DIR"
+```
+
+Replace the four variables with the completed current-main private CI run (the **entire run, including archive, must succeed**), its full source commit, the exact sealed artifact SHA256 from that run, and a nonexistent absolute directory under the system temporary directory, for example `/private/tmp/sfz-likes-bootstrap-<run>`. Desktop/sync directories, Git ancestors, symlinks to existing destinations and repeated destinations are refused. If staging fails, it leaves private diagnostic inputs but no `bootstrap-receipt.json`; do not treat a partial directory as ready or resume into it.
+
+The CLI checks current source main, run/workflow/event/repository/attempt, the published private Release and immutable tag, exact two asset identities and sizes/digests, safe ZIP extraction, seal, release policy, successful CI loopback acceptance, and pinned source/toolchain bytes. It rechecks both source and controller main before issuing its receipt. Only approved Worker source plus sealed ID data are used; no downloaded scripts are executed. Files are private (directory 0700, files 0600). Nothing is uploaded and no Cloudflare API, deployment, database, token or SALT operation is performed.
+
+Review these outputs before any remote action:
+
+- `bootstrap-receipt.json`: source/controller identity, seal/hash, 124-or-current ID count/hash, schema/source/config SHA and `deployed:false`, `remoteStateVerified:false`.
+- `likes-worker/src/index.js`, `src/known-ids.js`, `schema.sql`: exact approved source/SQL and generated canonical IDs.
+- `likes-worker/wrangler.bootstrap.json`: fixed `sfz-likes`/D1 UUID, three exact origins and ID metadata, hourly `17 * * * *`, `workers_dev:false`, `preview_urls:false`, **no routes and no SALT**. The separate ordinary `wrangler.json` intentionally has no cron/route reconciliation.
+
+### Remote first-bootstrap order (maintainer only; not run by this CLI)
+
+1. Reconfirm approved account, exact D1 name/UUID and that **sfz-likes does not already exist** using the provider’s read-only evidence. Confirm D1 has no user tables/data. The temporary existing maintainer authorization needs creation rights and D1 write; under the new role model creating a Worker needs product-level Admin. Do not assume the narrow future Worker Editor token can create it. Any existing Worker, SALT, user table, changed identity or uncertain response stops initialization; inspect prior receipts and use a separately reviewed recovery/update path. Never erase a database or rotate a salt to make the bootstrap pass.
+2. Using the staged bootstrap config and fixed Wrangler 4.45.0, query the database, then apply the staged approved schema **once**. Capture schema identity and empty counts; compare the four tables, primary keys and `count_unique_view` trigger with the approved SQL. `CREATE IF NOT EXISTS` does not prove a pre-existing schema was correct.
+
+```sh
+npx --yes wrangler@4.45.0 d1 execute sfz-likes --remote --config "$LIKES_BOOTSTRAP_DIR/likes-worker/wrangler.bootstrap.json" --command "SELECT COUNT(*) AS user_tables FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*';"
+npx --yes wrangler@4.45.0 d1 execute sfz-likes --remote --config "$LIKES_BOOTSTRAP_DIR/likes-worker/wrangler.bootstrap.json" --file "$LIKES_BOOTSTRAP_DIR/likes-worker/schema.sql" --yes
+```
+
+The first query must return zero before schema creation. Recheck that the Worker is still absent immediately before the next step. These commands are **not** a repeatable generic deployment recipe: after any partial success, stop and inspect that stage before continuing; do not rerun the block.
+
+3. Perform the first **ordinary deploy**, with no custom domain and both public default URLs disabled. [Cloudflare requires ordinary deploy/Script Upload for the first creation](https://developers.cloudflare.com/workers/versions-and-deployments/deployment-management/); `versions upload` cannot create a new Worker. Missing SALT makes the approved code return 503; this intermediate state is expected and is not readiness.
+
+```sh
+npx --yes wrangler@4.45.0 deploy --config "$LIKES_BOOTSTRAP_DIR/likes-worker/wrangler.bootstrap.json" --experimental-auto-create=false
+```
+
+4. Create the stable SALT once in the maintainer’s private secret storage (at least 32 characters), save its recovery copy in the password manager and a private 0600 file outside Git, then feed that file through stdin. Do not print it, put it in a command argument or add it to a receipt. Confirm no SALT already exists before this step. `secret put` creates and deploys another version; record the final active version after it, not the earlier saltless version. Do not run `secret put` before the first code deploy: Wrangler 4.45.0 can otherwise create a dummy Worker unrelated to the approved source. The newer documented `--secrets-file` flag is unavailable in pinned 4.45.0.
+
+```sh
+npx --yes wrangler@4.45.0 secret put SALT --config "$LIKES_BOOTSTRAP_DIR/likes-worker/wrangler.bootstrap.json" < "$LIKES_SALT_FILE"
+```
+
+5. Through the read-only Cloudflare deployment/version API, require one active version at 100% and run the existing `activeVersion()`/`versionIds()` validation against that response. Verify exactly `DB`, `SALT` (secret_text), `ALLOWED_ORIGIN`, `KNOWN_IDS_JSON`, `KNOWN_IDS_SHA256`; the D1 UUID and ID hash must equal the staging receipt. Separately verify the one hourly cron and disabled workers.dev/version URLs. Save metadata-only evidence; do not save provider output indiscriminately. Do not add another binding just to mark bootstrap status: daily updates intentionally reject unknown bindings.
+6. Configure **only** `likes.stefanzhang.com` as its custom domain in a separately authorized maintainer action. This needs affected-zone Workers Routes Write and currently product/legacy permission because custom domains do not support per-Worker roles. Do not change `.com` apex, WordPress or unrelated services. With default URLs disabled there is no public health endpoint until this domain is attached; afterward run `verifyReadiness(ids)` for all sealed IDs and the three exact Origins. Production acceptance is GET-only. Write/concurrency/cancel/rate-limit/scheduled cleanup tests belong to a separate rehearsal Worker/D1 with its own salt, never production IDs/data.
+7. Only after those checks, create the **individual sfz-likes Editor** CI token, save it as `CLOUDFLARE_LIKES_API_TOKEN` in the existing protected preview environment, and run `deploy-likes.yml` for the same successful source package as the first normal handoff test. It must preserve the D1, stable SALT, cron and custom domain; it must produce the normal version/ID receipt. Stop on a failed gate rather than broadening token permissions or bypassing the version/ID checks.
+
+The staging receipt is a review artifact, not remote authorization or bootstrap-success evidence. A failed first initialization has no previous healthy Worker version to restore automatically. Keep services/domain exposure closed where possible, preserve the private stage and per-step evidence, and explicitly review recovery; never silently replay SQL, regenerate SALT or create a second database. Keep the existing Pages token unchanged.
