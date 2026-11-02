@@ -5,6 +5,11 @@ import {digest} from './release/files.mjs';
 
 export const SERVICE_RECEIPT_MAX_AGE_MS = 15 * 60 * 1000;
 const VERSION = '2.10.1';
+// Official fixed 2.10.1 image assets, independently fetched 2026-11-02.
+export const ARTALK_ASSETS = Object.freeze([
+  Object.freeze({path:'/dist/Artalk.js',mime:'text/javascript',bytes:200645,sha256:'a3bd0da1ac0a23f2d56deb72bc84be1b8940381df1765aeb508334f78f6034d0'}),
+  Object.freeze({path:'/dist/Artalk.css',mime:'text/css',bytes:37735,sha256:'6838d478de7fdc090b3c44a495a1ec07d48e415bbf520cdfb1ed44b352026b76'}),
+]);
 const ORIGINS = ['https://stefanzhang.com','https://stefanzhang.cn','https://release-preview.stefanzhang-com.pages.dev'];
 const ENDPOINTS = {likes:'https://likes.stefanzhang.com',artalk:'https://comments.stefanzhang.com'};
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
@@ -51,7 +56,7 @@ function binding(record, policy, env, pageKeys) {
     origins:inventory.origins,endpoints:inventory.endpoints,artalkVersion:VERSION};
 }
 function expectedChecks(inventory) {
-  return {workerHealth:3,workerCounts:3*2*Math.ceil(inventory.ids.length/100),artalkConfig:3,artalkPages:3*inventory.pageKeys.length};
+  return {workerHealth:3,workerCounts:3*2*Math.ceil(inventory.ids.length/100),artalkConfig:3,artalkAssets:3*ARTALK_ASSETS.length,artalkPages:3*inventory.pageKeys.length};
 }
 
 function validCommentList(comments, pageKey) {
@@ -85,6 +90,21 @@ export function assertServicesReceipt(receipt, {record,policy,env,pageKeys,now=D
 }
 
 class ServiceError extends Error { constructor(code) { super(code); this.code=code; } }
+export async function verifyArtalkAsset(response, asset) {
+  if (response.status !== 200) throw new ServiceError('http-'+response.status);
+  const mime=(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (mime!==asset.mime) throw new ServiceError('artalk-asset-mime');
+  const reader=response.body?.getReader();
+  if (!reader) throw new ServiceError('empty-body');
+  let size=0;const chunks=[];
+  try {
+    while(true) { const {done,value}=await reader.read();if(done)break;size+=value.length;
+      if(size>asset.bytes){await reader.cancel();throw new ServiceError('artalk-asset-size');}chunks.push(value); }
+  } catch(error) { throw error instanceof ServiceError ? error : new ServiceError('network-or-timeout'); }
+  if(size!==asset.bytes)throw new ServiceError('artalk-asset-size');
+  if(digest(Buffer.concat(chunks))!==asset.sha256)throw new ServiceError('artalk-asset-sha256');
+}
+
 async function readJSON(fetchImpl, url, origin, timeoutMs) {
   let response;
   try { response=await fetchImpl(url,{method:'GET',redirect:'error',cache:'no-store',credentials:'omit',
@@ -104,10 +124,10 @@ async function readJSON(fetchImpl, url, origin, timeoutMs) {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new ServiceError('invalid-json'); }
 }
 
-export async function verifyServices({record,policy,env,pageKeys,fetchImpl=fetch,now=()=>Date.now(),timeoutMs=10000}) {
+export async function verifyServices({record,policy,env,pageKeys,fetchImpl=fetch,now=()=>Date.now(),timeoutMs=10000,assetVerifier=verifyArtalkAsset}) {
   const inventory=serviceInventory(record,policy,pageKeys),started=now();
   const receipt={...binding(record,policy,env,pageKeys),startedAt:new Date(started).toISOString(),verifiedAt:null,passed:false,
-    checks:{workerHealth:0,workerCounts:0,artalkConfig:0,artalkPages:0},failures:[]};
+    checks:{workerHealth:0,workerCounts:0,artalkConfig:0,artalkAssets:0,artalkPages:0},failures:[]};
   let check='worker-health',origin=ORIGINS[0];
   const read=url=>{
     if(now()-started>5*60*1000)throw new ServiceError('total-time-limit');
@@ -129,6 +149,18 @@ export async function verifyServices({record,policy,env,pageKeys,fetchImpl=fetch
       const conf=await read(ENDPOINTS.artalk+'/api/v2/conf');
       if(!object(conf)||conf.version?.app!=='artalk'||conf.version.version!==VERSION||!object(conf.frontend_conf))throw new ServiceError('artalk-config');
       receipt.checks.artalkConfig++;
+      for(const asset of ARTALK_ASSETS) {
+        check='artalk-asset';
+        if(now()-started>5*60*1000)throw new ServiceError('total-time-limit');
+        let response;
+        try { response=await fetchImpl(ENDPOINTS.artalk+asset.path,{method:'GET',redirect:'error',cache:'no-store',credentials:'omit',
+          headers:{Accept:asset.mime,Origin:origin},signal:AbortSignal.timeout(timeoutMs)}); }
+        catch { throw new ServiceError('network-or-timeout'); }
+        if(response.headers.get('access-control-allow-origin')!==origin)throw new ServiceError('cors-origin');
+        if(!/(?:^|,)\s*origin\s*(?:,|$)/i.test(response.headers.get('vary')||''))throw new ServiceError('cors-vary');
+        await assetVerifier(response,asset);
+        receipt.checks.artalkAssets++;
+      }
       // v2.10.1 comment_list.go uses FindPage; absent pages are constructed but
       // never saved. Do not use /pages/fetch, which creates pages/increments PV.
       for(const pageKey of inventory.pageKeys) {

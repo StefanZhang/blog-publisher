@@ -62,7 +62,7 @@ if(full){
   services.push('likes/read/CORS/schema');
  }catch(error){failures.push({url:record.config.likesApi,error:error.message});}
  if(record.config.artalkServer!=='off')try{
-  const r=await fetch(record.config.artalkServer+'/dist/artalk.js',{headers,signal:AbortSignal.timeout(15000)});
+  const r=await fetch(record.config.artalkServer+'/dist/Artalk.js',{headers,signal:AbortSignal.timeout(15000)});
   if(!r.ok||!r.headers.get('content-type')?.includes('javascript'))throw new Error('Artalk JS unavailable or wrong MIME');
   await r.body?.cancel();services.push('artalk-assets');
  }catch(error){failures.push({url:record.config.artalkServer,error:error.message});}
