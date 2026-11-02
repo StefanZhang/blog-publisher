@@ -28,6 +28,7 @@ BASE=Path('/var/www/stefanzhang.cn')
 REPO='StefanZhang/blog-publisher'
 API='https://api.github.com/repos/'+REPO
 WORKFLOW='.github/workflows/publish-preview.yml'
+WORKFLOWS={WORKFLOW,'.github/workflows/publish-content.yml'}
 TEST_COMMAND=['/usr/bin/sudo','-n','/usr/sbin/nginx','-t']
 RELOAD_COMMAND=['/usr/bin/sudo','-n','/usr/bin/systemctl','reload','nginx.service']
 
@@ -112,7 +113,7 @@ def discover(fetcher):
     if not trusted_bot(statuses[0]):raise ValueError('Untrusted success status creator')
     run=json_data(fetcher.get(API+'/actions/runs/'+payload['controllerRun'],1024*1024))
     if run.get('status')!='completed':return None
-    if run.get('conclusion')!='success' or str(run.get('id'))!=payload['controllerRun'] or run.get('run_attempt')!=payload['controllerAttempt'] or run.get('head_branch')!='main' or run.get('head_sha')!=payload['controllerCommit'] or run.get('path','').split('@')[0]!=WORKFLOW or run.get('head_repository',{}).get('full_name')!=REPO or run.get('event') not in ['workflow_dispatch','schedule']:raise ValueError('Controller run failed identity/success policy')
+    if run.get('conclusion')!='success' or str(run.get('id'))!=payload['controllerRun'] or run.get('run_attempt')!=payload['controllerAttempt'] or run.get('head_branch')!='main' or run.get('head_sha')!=payload['controllerCommit'] or run.get('path','').split('@')[0] not in WORKFLOWS or run.get('head_repository',{}).get('full_name')!=REPO or run.get('event') not in ['workflow_dispatch','schedule']:raise ValueError('Controller run failed identity/success policy')
     return {'deploymentId':d['id'],'payload':payload}
 
 def sync_directory(directory):

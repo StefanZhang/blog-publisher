@@ -65,7 +65,7 @@ export function parseUploadedVersion(output) {
   if (matches.length !== 1 || !UUID.test(matches[0][1])) throw Error('Wrangler did not return one valid uploaded version ID');
   return matches[0][1];
 }
-function execute(program, args, options = {}) {
+export function execute(program, args, options = {}) {
   const result = spawnSync(program, args, {encoding:'utf8', timeout:600000, maxBuffer:2*1024*1024, ...options});
   // Never echo child output: it may contain bindings, private paths or provider responses.
   if (result.error || result.status !== 0) throw Error('Trusted command failed: '+path.basename(program));
@@ -116,12 +116,13 @@ export async function stageLikesPackage(options) {
   const staged = await stageApprovedSource(options);
   return {...staged,...await prepareWorker({...options,...staged})};
 }
-export async function publishWorker({policy, ids, worker, cf, wrangler, verify, beforePromote = async () => {}}) {
+export async function publishWorker({policy, ids, worker, cf, wrangler, verify, beforePromote = async () => {}, skipUnchanged = false}) {
   const before = activeVersion(await cf('deployments'));
   const deployedIds = versionIds(await cf('versions/'+before.versionId),before.versionId,policy);
   assertSuperset(ids,deployedIds);
   // Read-only health proves the existing SALT meets the Worker's minimum and schema exists.
   await verify(deployedIds);
+  if(skipUnchanged&&idsHash(ids)===idsHash(deployedIds))return {workerVersion:before.versionId,deploymentId:before.deploymentId,idsSHA256:idsHash(ids),idCount:ids.length,changed:false};
   const common = ['--config',path.join(worker,'wrangler.json')];
   const uploaded = parseUploadedVersion(await wrangler(['versions','upload',...common,'--experimental-auto-create=false','--message','Reviewed sealed source; IDs '+idsHash(ids)]));
   const uploadedIds = versionIds(await cf('versions/'+uploaded),uploaded,policy);

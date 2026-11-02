@@ -17,7 +17,7 @@ const bot=value=>value?.creator?.login==='github-actions[bot]' && value.creator.
 export function assertControllerRun(run,id){
   if(!ID.test(id)||String(run?.id)!==id||run.status!=='completed'||run.conclusion!=='success'||
     !Number.isSafeInteger(run.run_attempt)||run.run_attempt<1||run.head_branch!=='main'||!SHA.test(run.head_sha||'')||
-    run.path?.split('@')[0]!==WORKFLOW||run.repository?.full_name!==REPO||run.head_repository?.full_name!==REPO||
+    ![WORKFLOW,'.github/workflows/publish-content.yml'].includes(run.path?.split('@')[0])||run.repository?.full_name!==REPO||run.head_repository?.full_name!==REPO||
     !['schedule','workflow_dispatch'].includes(run.event))throw Error('Controller run identity/complete success mismatch');
   return run;
 }

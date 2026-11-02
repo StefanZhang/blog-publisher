@@ -2,7 +2,7 @@ name: CN installation identity
 run-name: Verify CN installation - controller ${{ inputs.controller_run_id || github.event.workflow_run.id }}
 on:
   workflow_run:
-    workflows: [publish-sealed-preview]
+    workflows: [publish-sealed-preview, publish-content-dual]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -24,7 +24,7 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == 'StefanZhang/blog-publisher'))
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -38,6 +38,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CONTROLLER_RUN: ${{ inputs.controller_run_id || github.event.workflow_run.id }}
+      - name: Full online checks for automatic paired publication
+        run: node scripts/verify-dual.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          CONTROLLER_RUN: ${{ inputs.controller_run_id || github.event.workflow_run.id }}
+      - name: Retain paired online evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dual-online-${{ github.run_id }}
+          path: .work/dual-online.json
+          if-no-files-found: ignore
+          retention-days: 90
       - name: Retain metadata-only installation evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
