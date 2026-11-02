@@ -28,6 +28,6 @@
     "scripts/optimize-images.mjs": "6789870aaded026ebd03a32bc40924fa7eb98f20e1898aec8317ac3546c9ad0d",
     ".github/workflows/deploy.yml": "8b76129cbcd3dabc01f5d430e5f94fd070028c486220d39a088c31cc129fec1a",
     "scripts/release/archive.mjs": "2c4f3b4d26b5778b49697e5d9840a823ea6f72defbf94cbeb543006681bd6700",
-    "scripts/lib/release-archive.mjs": "c8c967571ac886bf8a72acce5ee19cfbc3e526f152a5e68c6a3d5913089b49b6"
+    "scripts/lib/release-archive.mjs": "bcb554c9e5de6c2b4becbf14b816bcf6d450764b71c9505603256b5b99d6365d"
   }
 }

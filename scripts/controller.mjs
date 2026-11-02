@@ -7,7 +7,7 @@ const command=process.argv[2], root=path.resolve('.work');
 const readToken=process.env.SOURCE_READ_TOKEN, ownToken=process.env.GH_TOKEN;
 async function api(endpoint,own=false,body){
  const token=own?ownToken:readToken;if(!token)throw Error('Missing '+(own?'controller GitHub token':'SOURCE_READ_TOKEN'));
- const r=await fetch('https://api.github.com/repos/'+(own?policy.controllerRepo:policy.sourceRepo)+'/'+endpoint,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});
+ const r=await fetch('https://api.github.com/repos/'+(own?policy.controllerRepo:policy.sourceRepo)+(endpoint?'/'+endpoint:''),{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});
  if(!r.ok)throw Error('GitHub API '+r.status+' at '+endpoint.split('?')[0]);return r.json();
 }
 async function emit(data){
