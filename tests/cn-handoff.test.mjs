@@ -36,7 +36,7 @@ function fixture() {
       pageKeys:{count:1,sha256:digest(JSON.stringify(f.pageKeys))},origins:['https://stefanzhang.com','https://stefanzhang.cn',policy.previewOrigin],
       endpoints:{likes:record.config.likesApi,artalk:record.config.artalkServer},artalkVersion:'2.10.1',
       startedAt:new Date().toISOString(),verifiedAt:new Date().toISOString(),passed:true,
-      checks:{workerHealth:3,workerCounts:6,artalkConfig:3,artalkAssets:6,artalkPages:3},failures:[]};
+      checks:{workerHealth:3,workerCounts:6,artalkConfig:3,artalkAssets:6,artalkCaptchaHTML:1,artalkPages:3},failures:[]};
   };
   f.seal();return f;
 }
@@ -60,7 +60,7 @@ test('handoff rejects wrong workflow/attempt/main context and stale or incomplet
   }
   for(const mutate of [f=>{f.fixed.passed=false;},f=>{f.fixed.base=policy.previewOrigin;},f=>{f.receipt.controllerRun='999';},
     f=>{f.fixed.releaseHash='c'.repeat(64);},f=>{f.alias.filesChecked=f.fixed.filesChecked=1;f.receipt=publicReceipt(f.record,f.alias,f.env,f.fixed);},
-    f=>{f.legacyCount=2;},f=>{delete f.servicesReceipt;},f=>{delete f.servicesReceipt.checks.artalkAssets;},f=>{f.servicesReceipt.checks.artalkAssets=5;},f=>{f.servicesReceipt.controllerAttempt=1;},f=>{f.servicesReceipt.startedAt='2020-01-01T00:00:00Z';},f=>{f.record.config.publicationOrigin='https://stefanzhang.com';}]) {
+    f=>{f.legacyCount=2;},f=>{delete f.servicesReceipt;},f=>{delete f.servicesReceipt.checks.artalkCaptchaHTML;},f=>{f.servicesReceipt.checks.artalkCaptchaHTML=0;},f=>{delete f.servicesReceipt.checks.artalkAssets;},f=>{f.servicesReceipt.checks.artalkAssets=5;},f=>{f.servicesReceipt.controllerAttempt=1;},f=>{f.servicesReceipt.startedAt='2020-01-01T00:00:00Z';},f=>{f.record.config.publicationOrigin='https://stefanzhang.com';}]) {
     const f=fixture();mutate(f);assert.throws(()=>handoffPayload(f));
   }
 });

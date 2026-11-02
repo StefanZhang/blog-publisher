@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "zone": "stefanzhang.com",
+  "phase": "http_config_settings",
+  "rule": {
+    "description": "Artalk comments: preserve script execution",
+    "expression": "(http.host eq \"comments.stefanzhang.com\")",
+    "action": "set_config",
+    "action_parameters": {
+      "rocket_loader": false
+    },
+    "enabled": true
+  }
+}
