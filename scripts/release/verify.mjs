@@ -20,7 +20,7 @@ await Promise.all(Array.from({length:6},async()=>{while(next<urls.length){
   const r=await fetch(new URL(route,base),{redirect:'manual',signal:AbortSignal.timeout(20000)});
   if(r.status!==200)throw new Error('HTTP '+r.status);
   if(!hasLocalImagePolicy(r.headers.get('content-security-policy')))throw new Error('Missing or permissive local-only image CSP');
-  const chunks=[];let received=0;const reader=r.body.getReader();while(true){const {value,done}=await reader.read();if(done)break;received+=value.length;if(received>meta.bytes){await reader.cancel();throw new Error('Published body exceeds sealed size');}chunks.push(Buffer.from(value));}const bytes=Buffer.concat(chunks);if(bytes.length!==meta.bytes||digest(bytes)!==meta.sha256)throw new Error('Published bytes differ from sealed artifact');
+  const chunks=[];let received=0;const reader=r.body.getReader();while(true){const {value,done}=await reader.read();if(done)break;received+=value.length;if(received>meta.bytes){await reader.cancel();throw new Error('Published body exceeds sealed size: expected '+meta.bytes+' bytes, received at least '+received);}chunks.push(Buffer.from(value));}const bytes=Buffer.concat(chunks);const actualHash=digest(bytes);if(bytes.length!==meta.bytes||actualHash!==meta.sha256)throw new Error('Published bytes differ from sealed artifact: expected '+meta.bytes+' bytes sha256='+meta.sha256+'; received '+bytes.length+' bytes sha256='+actualHash);
   const mime=mimeFor(name);if(mime&&!r.headers.get('content-type')?.includes(mime))throw new Error('Unexpected Content-Type');
   if(!local){
    if(r.headers.get('x-content-type-options')!=='nosniff')throw new Error('Missing nosniff');
