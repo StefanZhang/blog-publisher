@@ -32,6 +32,6 @@
     "scripts/lib/release-archive.mjs": "8669d1c8b0b70077b7af98024814feaea6fa07e5932a59d69a0a275802e2fdae",
     "scripts/check-source-images.mjs": "772bee410a0ff3abf66cd9e2e119f5bfbb9fdefd7daf7be591b68583510d8f58",
     "scripts/check-notes-images.mjs": "296afd6b7641057c484978ea80bbb371e1f5353f88d6988588b9ad98aa1c0181",
-    "scripts/lib/notes-images.mjs": "530165aa1af8965ba08674742597fdd903f11e5e894ce920d4ccf9d9e2348324"
+    "scripts/lib/notes-images.mjs": "0fd2af54b5ef519e0924954546f677ee80a3fda4f972e3097e4f3e3a4563b65e"
   }
 }

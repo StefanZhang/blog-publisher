@@ -28,4 +28,4 @@ workflow 与 .cn 共用 Pages 并发锁；等待 .com 审批期间 .cn preview �
 
 ## 首切前说说图片门禁
 
-2026-11-02 在旧包预览通过后发现：原始说说的 5 张图片未出现在内容/渲染中，旧资源测试没有覆盖这类缺失。因此取消 run 41504929235 的待审 production，不改变 DNS。source PR 恢复图片并新增源/渲染身份检查；两个 policy 固定新增检查器的源码 SHA，production 同步审阅 prepare 的新检查步骤。该 policy 版本只接受修复后的 CI 包，不能复用旧 hash 或旧预览回执。
+2026-11-02 在旧包预览通过后发现：原始说说的 5 张图片未出现在内容/渲染中，11 个链接也丢失了目标，旧资源测试没有覆盖这类缺失。因此取消 run 41504929235 的待审 production，不改变 DNS。source PR 恢复图片并新增源/渲染身份检查；两个 policy 固定新增检查器的源码 SHA，production 同步审阅 prepare 的新检查步骤。该 policy 版本只接受修复后的 CI 包，不能复用旧 hash 或旧预览回执。
