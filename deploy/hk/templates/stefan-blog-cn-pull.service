@@ -1,0 +1,19 @@
+[Unit]
+Description=Read-only verified static publication receiver for stefanzhang.cn
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=stefan
+Group=www-data
+WorkingDirectory=/
+Environment=PYTHONNOUSERSITE=1
+ExecStart=/usr/bin/env -u PYTHONPATH -u PYTHONHOME /usr/bin/python3 @PROGRAM@/puller.py
+TimeoutStartSec=20min
+UMask=0027
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+# Existing sudo nginx-test/systemctl-reload rights are required. NoNewPrivileges
+# must not be enabled; no additional sudoers entry is installed by bootstrap.

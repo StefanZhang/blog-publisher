@@ -9,6 +9,7 @@
   "config": {
     "schema": 1,
     "canonicalOrigin": "https://stefanzhang.com",
+    "publicationOrigin": "https://stefanzhang.cn",
     "pagesProject": "stefanzhang-com",
     "productionBranch": "main",
     "likesApi": "https://likes.stefanzhang.com",

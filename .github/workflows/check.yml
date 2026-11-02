@@ -8,7 +8,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -22,6 +22,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
       - run: npm test
       - run: python3 -m unittest discover -s tests -p 'test_*.py'
+      - name: Install isolated Nginx test dependency
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends nginx-core
+      - name: Test anonymous HK receiver and recovery
+        run: python3 -m unittest discover -s deploy/hk -p 'test_*.py'
+      - name: Verify public synthetic routing with real Nginx
+        run: >-
+          python3 deploy/hk/nginx_fixture.py --synthetic
+          --work "$RUNNER_TEMP/hk-nginx-fixture"
+          --nginx /usr/sbin/nginx --port 18743
       - name: Validate pinned workflow syntax
         run: |
           curl --fail --location --silent --show-error https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz --output "$RUNNER_TEMP/actionlint.tar.gz"

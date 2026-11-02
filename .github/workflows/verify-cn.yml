@@ -1,0 +1,48 @@
+name: CN installation identity
+run-name: Verify CN installation - controller ${{ inputs.controller_run_id || github.event.workflow_run.id }}
+on:
+  workflow_run:
+    workflows: [publish-sealed-preview]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      controller_run_id:
+        description: Completed successful publish-sealed-preview run ID
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: cn-identity-${{ inputs.controller_run_id || github.event.workflow_run.id }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: >-
+      github.repository == 'StefanZhang/blog-publisher' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == 'StefanZhang/blog-publisher'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - name: Verify installed identity, homepage, health and www redirect
+        run: node scripts/verify-cn.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTROLLER_RUN: ${{ inputs.controller_run_id || github.event.workflow_run.id }}
+      - name: Retain metadata-only installation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cn-installation-identity-${{ github.run_id }}
+          path: .work/cn-installation-identity.json
+          if-no-files-found: error
+          retention-days: 90
