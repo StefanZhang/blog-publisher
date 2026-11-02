@@ -20,7 +20,7 @@ const identity = values => ({count:values.length,sha256:digest(JSON.stringify(va
 const unique = values => [...new Set(values)].sort();
 
 export function serviceInventory(record, policy, pageKeys) {
-  if (record.config?.canonicalOrigin !== ORIGINS[0] || record.config.publicationOrigin !== ORIGINS[1] ||
+  if (record.config?.canonicalOrigin !== ORIGINS[0] || !ORIGINS.slice(0,2).includes(record.config.publicationOrigin) || record.config.publicationOrigin !== policy.config.publicationOrigin ||
       policy.previewOrigin !== ORIGINS[2] || record.config.likesApi !== ENDPOINTS.likes || record.config.artalkServer !== ENDPOINTS.artalk)
     throw Error('Services require the exact reviewed publication and service origins');
   if (!Array.isArray(record.contentIds) || !record.contentIds.length || record.contentIds.length > 20000 ||

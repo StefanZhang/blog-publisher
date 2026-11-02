@@ -1,0 +1,38 @@
+{
+  "sourceRepo": "StefanZhang/stefans_blog",
+  "sourceWorkflow": ".github/workflows/build-production.yml",
+  "controllerRepo": "StefanZhang/blog-publisher",
+  "reviewer": "StefanZhang",
+  "branch": "main",
+  "previewBranch": "release-preview",
+  "previewOrigin": "https://release-preview.stefanzhang-com.pages.dev",
+  "config": {
+    "schema": 1,
+    "canonicalOrigin": "https://stefanzhang.com",
+    "publicationOrigin": "https://stefanzhang.com",
+    "pagesProject": "stefanzhang-com",
+    "productionBranch": "main",
+    "likesApi": "https://likes.stefanzhang.com",
+    "artalkServer": "https://comments.stefanzhang.com",
+    "beaconToken": "",
+    "wranglerVersion": "4.45.0"
+  },
+  "controlHashes": {
+    "_headers": "1d9a23042b6420610c190f2d0106a9dea1e8be3dc3c989c0497203f1ed356fbe",
+    "_redirects": "d42415d32b38511fde5831f4717c16d76ca073423443e59f269d8a056f8348ea",
+    "_worker.js": "e2182d379b7ef0253f425bd99d6f33598290e69e7248bc9e3abe8e2772a37b52",
+    "_routes.json": "196e17fc717d6cec24a7f15f85080857562d72d9bbb49e48023d29cbb66be485"
+  },
+  "sourceFileHashes": {
+    ".nvmrc": "9185b9f67843cabfa8054f65ce47ce0b52036b0bfe07ae5a6b834d97cc127140",
+    "package-lock.json": "20c9ac341360da22674a4e5225922964c0a35c126ddb80a63ef3269e930357a2",
+    "scripts/optimize-images.mjs": "6789870aaded026ebd03a32bc40924fa7eb98f20e1898aec8317ac3546c9ad0d",
+    ".github/workflows/deploy.yml": "a7007783b7c323fa3337704b9cc61cd6f886dc3298e063a1f8d90622b1e84c07",
+    "scripts/release/archive.mjs": "2c4f3b4d26b5778b49697e5d9840a823ea6f72defbf94cbeb543006681bd6700",
+    "scripts/lib/release-archive.mjs": "8669d1c8b0b70077b7af98024814feaea6fa07e5932a59d69a0a275802e2fdae",
+    ".github/workflows/build-production.yml": "1e5ea40da51a2b8d6720f956609d9476a39061f363d6f181ebed42b2c320eb5d",
+    "scripts/release/prepare.mjs": "941da83757657d7e0021320bcc64bbb5760018d0805b00d3cbe2f1fc7e0f6baf",
+    "scripts/lib/release-profile.mjs": "383c7007f0070a998e504492e605e6d92af839d39058eeec2fc96d8191278f9c",
+    "release.production.config.json": "f5dbb8ac7afa57970316be4ed3e86ee54207838e78df8069f4b7e43709f57ec3"
+  }
+}

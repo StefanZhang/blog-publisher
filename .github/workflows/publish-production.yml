@@ -1,0 +1,183 @@
+name: publish-sealed-production
+run-name: COM ${{ inputs.mode }} - build ${{ inputs.build_run_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [stage, verify-domain]
+        default: stage
+        required: true
+        description: Stage exact package to Pages main, or read-only verify the formal domain
+      build_run_id:
+        default: latest
+        required: true
+        description: Successful current-main build-production run
+      artifact_hash:
+        required: false
+        description: Optional expected sealed hash
+permissions:
+  contents: read
+concurrency:
+  group: blog-pages-preview
+  cancel-in-progress: false
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      build_run_id: ${{ steps.inspect.outputs.build_run_id }}
+      source_commit: ${{ steps.inspect.outputs.source_commit }}
+      artifact_hash: ${{ steps.inspect.outputs.artifact_hash }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - id: inspect
+        run: node scripts/production.mjs inspect
+        env:
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          EXPECTED_HASH: ${{ inputs.artifact_hash }}
+  preview:
+    needs: inspect
+    if: inputs.mode == 'stage'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: preview
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Recheck approved source and target
+        run: node scripts/production.mjs stage-preview
+        env:
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ needs.inspect.outputs.build_run_id }}
+          EXPECTED_COMMIT: ${{ needs.inspect.outputs.source_commit }}
+          EXPECTED_HASH: ${{ needs.inspect.outputs.artifact_hash }}
+      - id: upload
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.45.0'
+          command: pages deploy .work/release/site --project-name=stefanzhang-com --branch=release-preview --commit-hash=${{ needs.inspect.outputs.source_commit }} --commit-message=Source-CI-${{ needs.inspect.outputs.build_run_id }}
+      - run: node scripts/verify-preview.mjs
+        env:
+          DEPLOYMENT_URL: ${{ steps.upload.outputs.deployment-url }}
+      - name: Record verified preview proof
+        run: node scripts/production.mjs record-preview
+        env:
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ needs.inspect.outputs.build_run_id }}
+          EXPECTED_COMMIT: ${{ needs.inspect.outputs.source_commit }}
+          EXPECTED_HASH: ${{ needs.inspect.outputs.artifact_hash }}
+          DEPLOYMENT_URL: ${{ steps.upload.outputs.deployment-url }}
+          DEPLOYMENT_ID: ${{ steps.upload.outputs.pages-deployment-id }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-preview-proof
+          path: .work/production-preview-proof.json
+          if-no-files-found: error
+          retention-days: 90
+  production:
+    needs: [inspect, preview]
+    if: inputs.mode == 'stage'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: production
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Download metadata from this exact workflow run
+        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name production-preview-proof --dir .proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Recheck approved source and target
+        run: node scripts/production.mjs stage-production
+        env:
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ needs.inspect.outputs.build_run_id }}
+          EXPECTED_COMMIT: ${{ needs.inspect.outputs.source_commit }}
+          EXPECTED_HASH: ${{ needs.inspect.outputs.artifact_hash }}
+      - id: upload
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.45.0'
+          command: pages deploy .work/release/site --project-name=stefanzhang-com --branch=main --commit-hash=${{ needs.inspect.outputs.source_commit }} --commit-message=Source-CI-${{ needs.inspect.outputs.build_run_id }}
+      - name: Verify project production bytes; formal domain remains separate
+        run: node scripts/production.mjs verify-project
+        env:
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ needs.inspect.outputs.build_run_id }}
+          EXPECTED_COMMIT: ${{ needs.inspect.outputs.source_commit }}
+          EXPECTED_HASH: ${{ needs.inspect.outputs.artifact_hash }}
+          DEPLOYMENT_URL: ${{ steps.upload.outputs.deployment-url }}
+          DEPLOYMENT_ID: ${{ steps.upload.outputs.pages-deployment-id }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-project-receipt
+          path: .work/production-project-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+  verify-domain:
+    needs: inspect
+    if: inputs.mode == 'verify-domain'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Read-only formal domain full acceptance
+        run: node scripts/production.mjs verify-domain
+        env:
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ needs.inspect.outputs.build_run_id }}
+          EXPECTED_COMMIT: ${{ needs.inspect.outputs.source_commit }}
+          EXPECTED_HASH: ${{ needs.inspect.outputs.artifact_hash }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-domain-receipt
+          path: .work/production-domain-receipt.json
+          if-no-files-found: error
+          retention-days: 90
