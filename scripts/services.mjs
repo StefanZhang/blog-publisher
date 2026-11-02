@@ -5,6 +5,7 @@ import {digest} from './release/files.mjs';
 
 export const SERVICE_RECEIPT_MAX_AGE_MS = 15 * 60 * 1000;
 const VERSION = '2.10.1';
+export const CAPTCHA_BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 // Official fixed 2.10.1 image assets, independently fetched 2026-11-02.
 export const ARTALK_ASSETS = Object.freeze([
   Object.freeze({path:'/dist/Artalk.js',mime:'text/javascript',bytes:200645,sha256:'a3bd0da1ac0a23f2d56deb72bc84be1b8940381df1765aeb508334f78f6034d0'}),
@@ -56,7 +57,7 @@ function binding(record, policy, env, pageKeys) {
     origins:inventory.origins,endpoints:inventory.endpoints,artalkVersion:VERSION};
 }
 function expectedChecks(inventory) {
-  return {workerHealth:3,workerCounts:3*2*Math.ceil(inventory.ids.length/100),artalkConfig:3,artalkAssets:3*ARTALK_ASSETS.length,artalkPages:3*inventory.pageKeys.length};
+  return {workerHealth:3,workerCounts:3*2*Math.ceil(inventory.ids.length/100),artalkConfig:3,artalkAssets:3*ARTALK_ASSETS.length,artalkCaptchaHTML:1,artalkPages:3*inventory.pageKeys.length};
 }
 
 function validCommentList(comments, pageKey) {
@@ -105,6 +106,39 @@ export async function verifyArtalkAsset(response, asset) {
   if(digest(Buffer.concat(chunks))!==asset.sha256)throw new ServiceError('artalk-asset-sha256');
 }
 
+// GET returns the fixed Turnstile template. Reading these bytes does not execute
+// its script, create a challenge, POST /verify or change comments/PV/limiter state.
+export async function verifyArtalkCaptchaHTML(response) {
+  if(response.status!==200)throw new ServiceError('http-'+response.status);
+  if(!/^text\/html(?:\s*;|$)/i.test(response.headers.get('content-type')||''))throw new ServiceError('captcha-html-mime');
+  if(response.headers.get('cf-mitigated')==='challenge')throw new ServiceError('captcha-edge-challenge');
+  const reader=response.body?.getReader();
+  if(!reader)throw new ServiceError('empty-body');
+  let size=0;const chunks=[];
+  try {
+    while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;
+      if(size>64*1024){await reader.cancel();throw new ServiceError('captcha-html-size');}chunks.push(value);}
+  }catch(error){throw error instanceof ServiceError?error:new ServiceError('network-or-timeout');}
+  const html=Buffer.concat(chunks).toString('utf8');
+  if(/rocket-loader|data-cf-settings|[\da-f]+-text\/javascript/i.test(html))throw new ServiceError('captcha-script-rewritten');
+  if(/\/cdn-cgi\/challenge-platform\/|\b_cf_chl_opt\b/i.test(html))throw new ServiceError('captcha-edge-challenge');
+  // Check the two executable scripts of the pinned template, not merely an HTML
+  // 200 or the word "Turnstile" on a Cloudflare challenge / fallback page.
+  const scripts=[...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)];
+  const attr=(tag,name)=>{
+    const match=tag.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`,'i'));
+    return match ? match[1]??match[2]??match[3] : undefined;
+  };
+  const executable=tag=>!attr(tag,'type')||/^(?:text|application)\/javascript$/i.test(attr(tag,'type'));
+  const external=scripts.filter(([,tag])=>attr(tag,'src')==='https://challenges.cloudflare.com/turnstile/v0/api.js'&&executable(tag));
+  const inline=scripts.filter(([,tag,body])=>!attr(tag,'src')&&executable(tag)&&
+    /turnstile\.ready\s*\(/.test(body)&&/turnstile\.render\s*\(\s*['"]#container['"]/.test(body)&&
+    /sitekey\s*:\s*['"][A-Za-z0-9_-]+['"]/.test(body)&&/fetch\s*\(\s*['"]\.\/verify['"]/.test(body)&&
+    /method\s*:\s*['"]POST['"]/.test(body)&&/JSON\.stringify\s*\(\s*\{\s*value\s*:\s*token\s*\}\s*\)/.test(body));
+  if(!/^\s*<!doctype html>/i.test(html)||!/<div\s+id=['"]container['"]\s*>/i.test(html)||external.length!==1||inline.length!==1)
+    throw new ServiceError('captcha-template');
+}
+
 async function readJSON(fetchImpl, url, origin, timeoutMs) {
   let response;
   try { response=await fetchImpl(url,{method:'GET',redirect:'error',cache:'no-store',credentials:'omit',
@@ -127,7 +161,7 @@ async function readJSON(fetchImpl, url, origin, timeoutMs) {
 export async function verifyServices({record,policy,env,pageKeys,fetchImpl=fetch,now=()=>Date.now(),timeoutMs=10000,assetVerifier=verifyArtalkAsset}) {
   const inventory=serviceInventory(record,policy,pageKeys),started=now();
   const receipt={...binding(record,policy,env,pageKeys),startedAt:new Date(started).toISOString(),verifiedAt:null,passed:false,
-    checks:{workerHealth:0,workerCounts:0,artalkConfig:0,artalkAssets:0,artalkPages:0},failures:[]};
+    checks:{workerHealth:0,workerCounts:0,artalkConfig:0,artalkAssets:0,artalkCaptchaHTML:0,artalkPages:0},failures:[]};
   let check='worker-health',origin=ORIGINS[0];
   const read=url=>{
     if(now()-started>5*60*1000)throw new ServiceError('total-time-limit');
@@ -173,6 +207,16 @@ export async function verifyServices({record,policy,env,pageKeys,fetchImpl=fetch
         receipt.checks.artalkPages++;
       }
     }
+    // Match iframe navigation: no Origin/credentials and no script execution.
+    // Accept is deliberately text/html; a default Node request missed this drift.
+    check='artalk-captcha-html';origin=ENDPOINTS.artalk;
+    if(now()-started>5*60*1000)throw new ServiceError('total-time-limit');
+    let response;
+    try {response=await fetchImpl(ENDPOINTS.artalk+'/api/v2/captcha/',{method:'GET',redirect:'error',cache:'no-store',credentials:'omit',
+      headers:{Accept:'text/html','User-Agent':CAPTCHA_BROWSER_UA},signal:AbortSignal.timeout(timeoutMs)});}
+    catch {throw new ServiceError('network-or-timeout');}
+    await verifyArtalkCaptchaHTML(response);
+    receipt.checks.artalkCaptchaHTML++;
     receipt.passed=true;
   } catch(error) {
     // Never retain response bodies, comments, names, mail addresses or arbitrary
