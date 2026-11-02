@@ -24,7 +24,8 @@ function server(calls=[],mutate=()=>{}) {
     if(u.pathname==='/health')return response({ok:true,schema:'atomic-views-v1'},origin);
     if(u.pathname==='/api/likes'||u.pathname==='/api/views')return response(Object.fromEntries(u.searchParams.get('ids').split(',').map(id=>[id,0])),origin);
     if(u.pathname==='/api/v2/conf')return response({version:{app:'artalk',version:'2.10.1'},frontend_conf:{}},origin);
-    if(u.pathname==='/api/v2/comments')return response({comments:[{content:'private comment body',email:'do-not-publish@example.test'}],count:1,roots_count:1,
+    if(u.pathname==='/api/v2/comments')return response({comments:[{id:41,rid:0,visible:true,page_key:u.searchParams.get('page_key'),site_name:'stefanzhang.com',
+      content:'private comment body',email:'do-not-publish@example.test'}],count:1,roots_count:1,
       page:{key:u.searchParams.get('page_key'),site_name:'stefanzhang.com'}},origin);
     throw Error('Unexpected request');
   };
@@ -76,6 +77,60 @@ test('Artalk must answer actual matching site/page and the pinned API version, n
     (u,o)=>u.pathname.endsWith('/comments')?response({comments:[],count:0,roots_count:0,page:{key:u.searchParams.get('page_key'),site_name:'other-site'}},o):null,
     (u,o)=>u.pathname.endsWith('/comments')?response({comments:[],count:'0',roots_count:0,page:{key:u.searchParams.get('page_key'),site_name:'stefanzhang.com'}},o):null,
   ])assert.equal((await verifyServices({...fixture(),fetchImpl:server([],mutate)})).passed,false);
+});
+
+test('Artalk flat limit=1 accepts a selected reply plus its invisible direct parent, including deeper threads',async()=>{
+  for (const parentRid of [0,39]) {
+    const calls=[];
+    const fetchImpl=server(calls,(u,o)=>{
+      if(!u.pathname.endsWith('/comments'))return;
+      const page_key=u.searchParams.get('page_key'),site_name='stefanzhang.com';
+      return response({comments:[
+        {id:42,rid:41,visible:true,page_key,site_name,is_pinned:true,content:'synthetic private text'},
+        {id:41,rid:parentRid,visible:false,page_key,site_name,email:'synthetic-private@example.test'},
+      ],count:parentRid?3:2,roots_count:1,page:{key:page_key,site_name}},o);
+    });
+    const r=await verifyServices({...fixture(),fetchImpl});
+    assert.equal(r.passed,true);assert.equal(r.checks.artalkPages,6);
+    for(const {url} of calls.filter(c=>c.url.includes('/api/v2/comments'))) {
+      const q=new URL(url).searchParams;assert.equal(q.get('limit'),'1');assert.equal(q.get('flat_mode'),'true');
+    }
+    assert.ok(!JSON.stringify(r).includes('synthetic private'));assert.ok(!JSON.stringify(r).includes('synthetic-private'));
+  }
+});
+
+test('Artalk flat replies reject unrelated, duplicate, cross-page or malformed rows without leaking content',async()=>{
+  const cases=[
+    c=>c[1].id=43,
+    c=>c[1].visible=true,
+    c=>c[0].visible=false,
+    c=>delete c[0].visible,
+    c=>c[0].visible='true',
+    c=>c[1].visible='false',
+    c=>c[1].id=c[0].id,
+    c=>c[0].id='42',
+    c=>c[1].id=0,
+    c=>c[0].id=Number.MAX_SAFE_INTEGER+1,
+    c=>c[0].rid=-1,
+    c=>c[1].rid='0',
+    c=>c[1].page_key='/different/',
+    c=>c[0].site_name='other-site',
+    c=>c.push({...c[1],id:40,rid:0}), // Grandparents are not appended by v2.10.1.
+    c=>c.splice(0,1), // An invisible parent without the selected comment is invalid.
+    c=>c.splice(0,c.length,{content:'synthetic private text'}),
+  ];
+  for(const mutate of cases) {
+    const fetchImpl=server([],(u,o)=>{
+      if(!u.pathname.endsWith('/comments'))return;
+      const page_key=u.searchParams.get('page_key'),site_name='stefanzhang.com';
+      const comments=[{id:42,rid:41,visible:true,page_key,site_name},{id:41,rid:40,visible:false,page_key,site_name}];
+      mutate(comments);
+      return response({comments,count:3,roots_count:1,page:{key:page_key,site_name}},o);
+    });
+    const r=await verifyServices({...fixture(),fetchImpl});
+    assert.equal(r.passed,false);assert.equal(r.failures[0].code,'artalk-page');
+    assert.ok(!JSON.stringify(r).includes('synthetic private'));
+  }
 });
 
 test('receipt rejects another package, source, IDs, page keys, config, controller context, incomplete coverage and time travel',async()=>{
