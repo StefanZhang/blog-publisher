@@ -54,6 +54,24 @@ function expectedChecks(inventory) {
   return {workerHealth:3,workerCounts:3*2*Math.ceil(inventory.ids.length/100),artalkConfig:3,artalkPages:3*inventory.pageKeys.length};
 }
 
+function validCommentList(comments, pageKey) {
+  if (!Array.isArray(comments)) return false;
+  const ids=new Set();
+  for (const comment of comments) {
+    if (!object(comment) || !Number.isSafeInteger(comment.id) || comment.id<1 || ids.has(comment.id) ||
+        !count(comment.rid) || typeof comment.visible!=='boolean' ||
+        comment.page_key!==pageKey || comment.site_name!=='stefanzhang.com') return false;
+    ids.add(comment.id);
+  }
+  // Artalk 2.10.1 applies limit=1 before adding a missing direct parent in
+  // flat mode. CookComment marks the selected row visible; only the appended
+  // parent is invisible. This is not recursive and pinned rows only affect sort.
+  const selected=comments.filter(comment=>comment.visible);
+  if (!comments.length) return true;
+  if (selected.length!==1) return false;
+  return comments.every(comment=>comment.visible || comment.id===selected[0].rid);
+}
+
 export function assertServicesReceipt(receipt, {record,policy,env,pageKeys,now=Date.now()}) {
   const expected=binding(record,policy,env,pageKeys);
   if (!sameKeys(receipt,[...Object.keys(expected),'startedAt','verifiedAt','passed','checks','failures']) ||
@@ -117,7 +135,7 @@ export async function verifyServices({record,policy,env,pageKeys,fetchImpl=fetch
         check='artalk-page';
         const query=new URLSearchParams({site_name:'stefanzhang.com',page_key:pageKey,limit:'1',flat_mode:'true'});
         const data=await read(ENDPOINTS.artalk+'/api/v2/comments?'+query);
-        if(!object(data)||!Array.isArray(data.comments)||data.comments.length>1||!count(data.count)||!count(data.roots_count)||
+        if(!object(data)||!validCommentList(data.comments,pageKey)||!count(data.count)||!count(data.roots_count)||
            data.count<data.comments.length||data.roots_count>data.count||data.page?.key!==pageKey||data.page?.site_name!=='stefanzhang.com')
           throw new ServiceError('artalk-page');
         receipt.checks.artalkPages++;

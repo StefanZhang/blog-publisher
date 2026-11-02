@@ -94,6 +94,8 @@ node scripts/restore.mjs "$DOWNLOAD_DIR" "$RESTORE_DIR" "$ARTIFACT_HASH"
 
 `services-receipt.json` 只记录包/源码/控制器 run、attempt、commit、配置及 ID/page-key 集合的 SHA、时间、覆盖计数和固定错误码，不保留评论正文、姓名或邮箱。`cn-handoff.mjs` 必须独立匹配这份回执，要求完整覆盖、零失败且检查开始至交接不超过 15 分钟；缺回执、串包、重跑旧 attempt、服务不可达或缺 ID 均阻断交接。失败回执也保留 90 天；无新增服务凭据。固定部署/alias 已上传而服务门禁失败时，`.cn` 仍维持上一成功交接，不把预览更新当成 `.cn` 成功。
 
+Artalk 的 `limit=1&flat_mode=true` 限制初选评论数；固定版本的 [findFlatLinkedComments](https://github.com/ArtalkJS/Artalk/blob/53d15ee0c3a908b4a58fc43f42c44b5e709279bd/server/handler/comments_get/utils_list.go) 还会补一条 `visible=false` 的直接父评论，所以门禁校验唯一 ID、真实可见性、父子关系及页面/站点身份，不把回复线程误判成分页失效。
+
 这一门禁证明公开读取和浏览器 Origin 配置在验收时可用；不证明评论提交/验证码、点赞写入、历史评论迁移完整或持续可用性。服务首次部署和更新仍须独立审批、隔离写测试与迁移对账。不能靠跳过门禁、伪造回执或给本 workflow 增加服务管理凭据求绿。
 
 
