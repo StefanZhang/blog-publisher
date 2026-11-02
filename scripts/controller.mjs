@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';import path from 'node:path';import {spawnSync} from 'node:child_process';import {createHash} from 'node:crypto';
+import {readProtection} from './protection.mjs';
 import {assertRun,assertRecord,assertProtection,assertSourceFile} from './policy.mjs';import {checkSeal} from './release/files.mjs';
 const policy=JSON.parse(await fs.readFile(new URL('../policy.json',import.meta.url),'utf8'));
 const command=process.argv[2], root=path.resolve('.work');
@@ -14,7 +15,7 @@ async function emit(data){
 }
 async function protect(){
  if(process.env.GITHUB_REPOSITORY!==policy.controllerRepo||process.env.GITHUB_REF!=='refs/heads/main')throw Error('Publishing runs only on controller main');
- assertProtection(await api('branches/main',true),await api('environments/preview',true),policy,process.env.GITHUB_SHA);
+ assertProtection(await readProtection(ownToken,policy.controllerRepo),await api('environments/preview',true),policy,process.env.GITHUB_SHA);
 }
 async function currentRun(){
  const main=(await api('branches/main')).commit.sha;

@@ -16,6 +16,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
+      - name: Verify live branch protection with the actual read-only workflow token
+        run: node scripts/protection.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
       - run: npm test
       - run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Validate pinned workflow syntax

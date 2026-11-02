@@ -8,8 +8,15 @@ export function assertRecord(record,policy,commit,hash){
  for(const [name,sha256]of Object.entries(policy.controlHashes))if(record.files[name]?.sha256!==sha256)throw Error('Control file changed; review controller policy before deploying: '+name);
  for(const name of Object.keys(record.files))if(name.split('/').some(s=>s.startsWith('.'))||/(^|\/)(functions|wrangler\.jsonc?|wrangler\.toml|package\.json|node_modules)(\/|$)/.test(name))throw Error('Unexpected executable/config path in site');
 }
+export function assertBranchProtection(branch){
+ const rule=branch?.protectionRule;
+ if(branch?.protected!==true||rule?.pattern!=='main'||rule.isAdminEnforced!==true||rule.allowsForcePushes!==false||rule.allowsDeletions!==false||rule.requiresStatusChecks!==true||rule.requiresStrictStatusChecks!==true||rule.requiresApprovingReviews!==true||!Number.isInteger(rule.requiredApprovingReviewCount)||rule.requiredApprovingReviewCount<0||!rule.requiredStatusChecks?.some(check=>check.context==='check'&&check.app?.databaseId===15368)||rule.bypassPullRequestAllowances?.totalCount!==0||rule.bypassForcePushAllowances?.totalCount!==0)throw Error('Controller main protection must enforce trusted CI, strict updates, admins, PR and no bypass/force/delete');
+}
 export function assertProtection(branch,environment,policy,controllerCommit){
- if(branch.protected!==true||environment.can_admins_bypass!==false||(controllerCommit&&branch.commit?.sha!==controllerCommit)||environment.deployment_branch_policy?.protected_branches!==true||!environment.protection_rules?.some(r=>r.type==='required_reviewers'&&r.reviewers?.some(x=>x.reviewer?.login===policy.reviewer)))throw Error('Controller branch and human approval must be enforced before publishing');
+ assertBranchProtection(branch);
+ const reviewerRules=environment?.protection_rules?.filter(r=>r.type==='required_reviewers')||[];
+ const reviewers=reviewerRules.length===1?reviewerRules[0].reviewers:[];
+ if(environment?.can_admins_bypass!==false||(controllerCommit&&branch.commit?.sha!==controllerCommit)||environment.deployment_branch_policy?.protected_branches!==true||environment.deployment_branch_policy?.custom_branch_policies!==false||reviewers?.length!==1||reviewers[0].type!=='User'||reviewers[0].reviewer?.type!=='User'||reviewers[0].reviewer?.login!==policy.reviewer)throw Error('Controller branch and exact human approval must be enforced before publishing');
 }
 export function destination(root,name){const resolved=path.resolve(root,name);if(!resolved.startsWith(path.resolve(root)+path.sep))throw Error('Unsafe destination');return resolved;}
 
