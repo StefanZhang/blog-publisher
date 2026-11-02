@@ -59,3 +59,11 @@ gh workflow run publish-content.yml -R StefanZhang/blog-publisher --ref main -f 
 ### GitHub 定时触发的边界
 
 定时任务可能延迟；[GitHub 官方规则](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)还规定，公开仓库60天没有活动时会停用 scheduled workflows。不能把私库文章更新视为公开 publisher 的可靠保活证据，也不能承诺定时器永久运行。维护者需关注 GitHub 的停用通知；若被停用，检查原因后 `gh workflow enable publish-content.yml -R StefanZhang/blog-publisher`，再手动触发同一受门禁保护的入口。此版本不为保活额外授予源码 CI 跨库写权限、不制造空提交；若后续要求消除这个运营依赖，应单独审阅事件驱动触发权限与凭据，而非暗中扩大文章 agent 权限。
+
+
+## 启用验收（2026-11-02）
+
+- 源 main `ce9ea98` 的 CN CI/私有归档 `41531650556`、COM CI/私有归档 `41531650316` 均成功。
+- 只读集成 run [41534117764](https://github.com/StefanZhang/blog-publisher/actions/runs/41534117764) 成功：两个真实归档及合并凭证、固定源码策略、Pages 项目/主分支、Worker 版本和124个现有 ID 健康全部通过；部署/DNS写入为0。
+- 在上述证据完成后通过独立 PR 将 enabled 设为 true；源 baseline 本身不是新的内容 PR，启用不会凭空重发维护版本。以后本人合并纯内容 PR 后，等待两目标 CI/归档与定时发现，不再点 preview/production。
+- 尚未验证：启用后第一条真实人类合并内容 PR 的完整发布和线上回执。正式 `.com` DNS 仍未切换，验收目标暂为 Pages project；不能把此接入验收表述为两正式域已同版。
