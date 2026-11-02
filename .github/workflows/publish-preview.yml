@@ -104,6 +104,20 @@ jobs:
           path: .work/preview-receipt.json
           if-no-files-found: error
           retention-days: 90
+      - name: Verify independent services read-only for this sealed content
+        run: node scripts/verify-services.mjs
+        env:
+          SOURCE_RUN: ${{ needs.inspect.outputs.build_run_id }}
+          EXPECTED_HASH: ${{ needs.inspect.outputs.artifact_hash }}
+          EXPECTED_COMMIT: ${{ needs.inspect.outputs.source_commit }}
+      - name: Preserve content-free service readiness evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: services-receipt-${{ github.run_id }}
+          path: .work/services-receipt.json
+          if-no-files-found: ignore
+          retention-days: 90
       - name: Authorize public .cn pull after complete workflow success
         run: node scripts/cn-handoff.mjs
         env:

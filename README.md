@@ -87,3 +87,11 @@ node scripts/restore.mjs "$DOWNLOAD_DIR" "$RESTORE_DIR" "$ARTIFACT_HASH"
 `CN installation identity` 在 `publish-sealed-preview` 整个 run 成功结束后自动运行，也可手工输入具体 controller run ID 重验。它只读核对 main/workflow/attempt/commit 与对应 `cn-pilot` 交接，等待最多约 15 分钟，要求 `.cn` 的 manifest SHA/大小一致、首页与 manifest 的 SHA/大小一致、`healthz` 正确，以及 www 永久跳转到 apex 并保留路径/query；结束前再次核对 controller attempt。发布 job 被跳过的轮询记为 `not-applicable`，不会冒称已安装。
 
 回执只含版本元数据、计数和失败原因，保留 90 天；scope 固定 `installation-identity`、`filesChecked=1`，不是全文件、历史路由或独立服务验收。旧站即使 `/healthz` 正常，只要新 manifest 未安装就会超时失败。此 workflow 只有 Contents/Actions 只读权限，无部署密钥、不创建 Deployment、不执行接收器回滚；失败应查看 HK 接收器和退避状态。现有健康监控仍只证明站点可用性。
+
+### .cn 交接前的独立服务只读门禁
+
+`verify-services.mjs` 在交接前读取同一封存包的 `contentIds` 及 HTML 中实际 `data-page-key`（保留说说锚点），对 `.com`、`.cn` 和固定 preview alias 三个精确 Origin 检查 Worker `/health`、全部 ID 的 likes/views 计数与 CORS；检查 Artalk 2.10.1 `/api/v2/conf` 和各实际页面的 `/api/v2/comments`、站点身份及 CORS。脚本不执行包内代码、不发送点赞/阅读量/评论写请求，不以 JS 200 冒充评论可用。Artalk 的 GET comments 缺页只构造响应，不保存页面或增加 PV；协议依据固定的 [v2.10.1 comment_list.go](https://github.com/ArtalkJS/Artalk/blob/53d15ee0c3a908b4a58fc43f42c44b5e709279bd/server/handler/comment_list.go) 和 [public conf](https://github.com/ArtalkJS/Artalk/blob/53d15ee0c3a908b4a58fc43f42c44b5e709279bd/server/common/conf.go)。版本升级须重新审阅协议。
+
+`services-receipt.json` 只记录包/源码/控制器 run、attempt、commit、配置及 ID/page-key 集合的 SHA、时间、覆盖计数和固定错误码，不保留评论正文、姓名或邮箱。`cn-handoff.mjs` 必须独立匹配这份回执，要求完整覆盖、零失败且检查开始至交接不超过 15 分钟；缺回执、串包、重跑旧 attempt、服务不可达或缺 ID 均阻断交接。失败回执也保留 90 天；无新增服务凭据。固定部署/alias 已上传而服务门禁失败时，`.cn` 仍维持上一成功交接，不把预览更新当成 `.cn` 成功。
+
+这一门禁证明公开读取和浏览器 Origin 配置在验收时可用；不证明评论提交/验证码、点赞写入、历史评论迁移完整或持续可用性。服务首次部署和更新仍须独立审批、隔离写测试与迁移对账。不能靠跳过门禁、伪造回执或给本 workflow 增加服务管理凭据求绿。

@@ -10,12 +10,12 @@ import {handoffPayload, loadHandoff, publishHandoff, validateHandoff} from '../s
 import {MANIFEST_PATH, LIMITS, validateManifest} from '../scripts/lib/delivery-manifest.mjs';
 
 function fixture() {
-  const content=Buffer.from('private site fixture, never in public metadata');
+  const content=Buffer.from('private site fixture <section data-comments data-page-key="/105/"></section>');
   const controls=Object.fromEntries(['_headers','_redirects','_worker.js','_routes.json'].map(name=>[name,Buffer.from('approved '+name)]));
   const files={'index.html':{bytes:content.length,sha256:digest(content)}};
   const manifest={schema:1,canonicalOrigin:'https://stefanzhang.com',publicationOrigin:'https://stefanzhang.cn',
     headersSHA256:digest(controls._headers),files,routing:{redirects:[],attachments:[],queries:[]}};
-  const record={schema:1,sourceCommit:'a'.repeat(40),config:structuredClone(policy.config),migrationGaps:[],files:{...files}};
+  const record={schema:1,sourceCommit:'a'.repeat(40),config:structuredClone(policy.config),migrationGaps:[],contentIds:['105'],files:{...files}};
   for(const[name,bytes]of Object.entries(controls))record.files[name]={bytes:bytes.length,sha256:digest(bytes)};
   const p={...policy,controlHashes:Object.fromEntries(Object.entries(controls).map(([name,bytes])=>[name,digest(bytes)]))};
   const env={GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:policy.controllerRepo,GITHUB_REF:'refs/heads/main',
@@ -24,12 +24,19 @@ function fixture() {
     DEPLOYMENT_URL:'https://1234abcd.stefanzhang-com.pages.dev/',DEPLOYMENT_ID:'deployment-id'};
   const alias={passed:true,kind:'remote',scope:'static',base:policy.previewOrigin,failures:[],filesChecked:2,legacyUrlsChecked:1,verifiedAt:'2026-11-02T12:00:00.000Z'};
   const fixed={...alias,base:'https://1234abcd.stefanzhang-com.pages.dev'};
-  const f={record,policy:p,env,alias,fixed,legacyCount:1,content,controls,manifest};
+  const f={record,policy:p,env,alias,fixed,pageKeys:['/105/'],legacyCount:1,content,controls,manifest};
   f.seal=()=>{
     f.manifestBytes=Buffer.from(JSON.stringify(f.manifest,null,2)+'\n');
     record.files[MANIFEST_PATH.slice(1)]={bytes:f.manifestBytes.length,sha256:digest(f.manifestBytes)};
     record.artifactHash=rootHash(record.files);env.EXPECTED_HASH=record.artifactHash;alias.releaseHash=record.artifactHash;fixed.releaseHash=record.artifactHash;
     f.receipt=publicReceipt(record,alias,env,fixed);
+    f.servicesReceipt={schema:1,scope:'read-only-services',artifactHash:record.artifactHash,sourceCommit:record.sourceCommit,
+      sourceRun:env.SOURCE_RUN,controllerRun:env.GITHUB_RUN_ID,controllerAttempt:2,controllerCommit:env.GITHUB_SHA,
+      configSHA256:digest(JSON.stringify(record.config)),contentIds:{count:1,sha256:digest(JSON.stringify(record.contentIds))},
+      pageKeys:{count:1,sha256:digest(JSON.stringify(f.pageKeys))},origins:['https://stefanzhang.com','https://stefanzhang.cn',policy.previewOrigin],
+      endpoints:{likes:record.config.likesApi,artalk:record.config.artalkServer},artalkVersion:'2.10.1',
+      startedAt:new Date().toISOString(),verifiedAt:new Date().toISOString(),passed:true,
+      checks:{workerHealth:3,workerCounts:6,artalkConfig:3,artalkPages:3},failures:[]};
   };
   f.seal();return f;
 }
@@ -53,7 +60,7 @@ test('handoff rejects wrong workflow/attempt/main context and stale or incomplet
   }
   for(const mutate of [f=>{f.fixed.passed=false;},f=>{f.fixed.base=policy.previewOrigin;},f=>{f.receipt.controllerRun='999';},
     f=>{f.fixed.releaseHash='c'.repeat(64);},f=>{f.alias.filesChecked=f.fixed.filesChecked=1;f.receipt=publicReceipt(f.record,f.alias,f.env,f.fixed);},
-    f=>{f.legacyCount=2;},f=>{f.record.config.publicationOrigin='https://stefanzhang.com';}]) {
+    f=>{f.legacyCount=2;},f=>{delete f.servicesReceipt;},f=>{f.servicesReceipt.controllerAttempt=1;},f=>{f.servicesReceipt.startedAt='2020-01-01T00:00:00Z';},f=>{f.record.config.publicationOrigin='https://stefanzhang.com';}]) {
     const f=fixture();mutate(f);assert.throws(()=>handoffPayload(f));
   }
 });
@@ -83,7 +90,7 @@ test('handoff reads an actual sealed site and fails after bytes change',async t=
   // Explicit lexical ordering matches walk(), including underscore paths.
   f.record.files=Object.fromEntries(Object.entries(f.record.files).sort(([a],[b])=>a<b?-1:a>b?1:0));
   for(const[name,value]of [['release/release.json',f.record],['release/legacy-urls.json',[{url:'/',target:'/'}]],
-    ['verified-alias.json',f.alias],['verified-fixed.json',f.fixed],['preview-receipt.json',f.receipt]])await fs.writeFile(path.join(root,name),JSON.stringify(value));
+    ['verified-alias.json',f.alias],['verified-fixed.json',f.fixed],['preview-receipt.json',f.receipt],['services-receipt.json',f.servicesReceipt]])await fs.writeFile(path.join(root,name),JSON.stringify(value));
   assert.deepEqual(await loadHandoff(root,f.policy,f.env),handoffPayload(f));
   await fs.appendFile(path.join(release,'site/index.html'),'changed');await assert.rejects(loadHandoff(root,f.policy,f.env),/modified since sealing/);
 });

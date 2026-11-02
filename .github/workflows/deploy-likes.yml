@@ -1,0 +1,81 @@
+name: deploy-independent-likes
+run-name: Independent likes Worker - source build ${{ inputs.build_run_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful current-main private sealed build run ID, or latest
+        default: latest
+        required: true
+      artifact_hash:
+        description: Optional exact sealed artifact SHA256
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: sfz-likes-publish
+  cancel-in-progress: false
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      sourceRun: ${{ steps.inspect.outputs.sourceRun }}
+      sourceCommit: ${{ steps.inspect.outputs.sourceCommit }}
+      artifactHash: ${{ steps.inspect.outputs.artifactHash }}
+      idsSHA256: ${{ steps.inspect.outputs.idsSHA256 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.22.2'
+      - id: inspect
+        run: node scripts/likes-deploy.mjs inspect
+        env:
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          EXPECTED_HASH: ${{ inputs.artifact_hash }}
+  publish:
+    needs: inspect
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment:
+      name: preview
+      url: https://likes.stefanzhang.com/health
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.22.2'
+      - name: Recheck sealed source and publish only the reviewed Worker version
+        run: node scripts/likes-deploy.mjs publish
+        env:
+          LIKES_ENVIRONMENT: preview
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ needs.inspect.outputs.sourceRun }}
+          EXPECTED_COMMIT: ${{ needs.inspect.outputs.sourceCommit }}
+          EXPECTED_HASH: ${{ needs.inspect.outputs.artifactHash }}
+          EXPECTED_IDS_HASH: ${{ needs.inspect.outputs.idsSHA256 }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_LIKES_API_TOKEN: ${{ secrets.CLOUDFLARE_LIKES_API_TOKEN }}
+      - name: Retain content-free Worker version receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: likes-receipt-${{ github.run_id }}
+          path: .work/likes-receipt.json
+          if-no-files-found: error
+          retention-days: 90

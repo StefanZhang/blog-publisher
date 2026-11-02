@@ -7,6 +7,7 @@ import {assertRecord, assertProtection} from './policy.mjs';
 import {readProtection, verifyControllerChecks} from './protection.mjs';
 import {publicReceipt, deploymentOrigin} from './receipt.mjs';
 import {validateManifest, MANIFEST_PATH, CONTROL_FILES, LIMITS} from './lib/delivery-manifest.mjs';
+import {assertServicesReceipt, readCommentPageKeys} from './services.mjs';
 
 const SHA = /^[a-f0-9]{40}$/;
 const HASH = /^[a-f0-9]{64}$/;
@@ -46,11 +47,12 @@ export function validateHandoff(payload) {
   return payload;
 }
 
-export function handoffPayload({record, alias, fixed, receipt, manifestBytes, legacyCount, policy, env}) {
+export function handoffPayload({record, alias, fixed, receipt, servicesReceipt, pageKeys, manifestBytes, legacyCount, policy, env}) {
   assertHandoffContext(env);
   assertRecord(record, policy, env.EXPECTED_COMMIT, env.EXPECTED_HASH);
   if (policy.controllerRepo !== CONTROLLER || record.config.publicationOrigin !== PUBLICATION ||
       record.config.canonicalOrigin !== CANONICAL) throw Error('CN publication policy mismatch');
+  assertServicesReceipt(servicesReceipt, {record, policy, env, pageKeys});
   const expectedReceipt = publicReceipt(record, alias, env, fixed);
   if (!isDeepStrictEqual(receipt, expectedReceipt)) throw Error('Stored preview receipt differs from verified fixed/alias evidence');
   const downloadable = Object.entries(record.files).filter(([name]) => !CONTROL_FILES.includes(name));
@@ -77,11 +79,12 @@ export async function loadHandoff(root, policy, env) {
   const read = name => fs.readFile(path.join(root, name), 'utf8').then(JSON.parse);
   const identity = record.files[MANIFEST_PATH.slice(1)];
   if (!identity || identity.bytes < 1 || identity.bytes > LIMITS.manifestBytes) throw Error('Missing or oversized delivery manifest');
-  const [alias, fixed, receipt, manifestBytes, legacy] = await Promise.all([
+  const [alias, fixed, receipt, servicesReceipt, pageKeys, manifestBytes, legacy] = await Promise.all([
     read('verified-alias.json'), read('verified-fixed.json'), read('preview-receipt.json'),
+    read('services-receipt.json'), readCommentPageKeys(release, record),
     fs.readFile(path.join(release, 'site', MANIFEST_PATH.slice(1))), read('release/legacy-urls.json')]);
   if (!Array.isArray(legacy)) throw Error('Invalid legacy verification inventory');
-  return handoffPayload({record, alias, fixed, receipt, manifestBytes, legacyCount:legacy.length, policy, env});
+  return handoffPayload({record, alias, fixed, receipt, servicesReceipt, pageKeys, manifestBytes, legacyCount:legacy.length, policy, env});
 }
 
 export async function publishHandoff(api, payload) {
