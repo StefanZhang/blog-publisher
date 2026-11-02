@@ -29,6 +29,7 @@ jobs:
     permissions:
       contents: read
       deployments: write
+      checks: read
     outputs:
       eligible: ${{ steps.inspect.outputs.eligible }}
       build_run_id: ${{ steps.inspect.outputs.build_run_id }}
@@ -62,6 +63,7 @@ jobs:
     permissions:
       contents: read
       deployments: write
+      checks: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -85,10 +87,10 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '4.45.0'
           command: pages deploy .work/release/site --project-name=stefanzhang-com --branch=release-preview --commit-hash=${{ needs.inspect.outputs.source_commit }} --commit-message=Source-CI-${{ needs.inspect.outputs.build_run_id }}
-      - name: Verify all files, historical URLs and preview noindex
-        run: |
-          node scripts/release/verify.mjs .work/release --base https://release-preview.stefanzhang-com.pages.dev
-          node scripts/preview-headers.mjs
+      - name: Verify fixed deployment and alias, including preview noindex
+        run: node scripts/verify-preview.mjs
+        env:
+          DEPLOYMENT_URL: ${{ steps.upload.outputs.deployment-url }}
       - name: Record content-free deployment evidence
         run: node scripts/receipt.mjs
         env:

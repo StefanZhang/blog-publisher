@@ -8,8 +8,18 @@ export function assertRecord(record,policy,commit,hash){
  for(const [name,sha256]of Object.entries(policy.controlHashes))if(record.files[name]?.sha256!==sha256)throw Error('Control file changed; review controller policy before deploying: '+name);
  for(const name of Object.keys(record.files))if(name.split('/').some(s=>s.startsWith('.'))||/(^|\/)(functions|wrangler\.jsonc?|wrangler\.toml|package\.json|node_modules)(\/|$)/.test(name))throw Error('Unexpected executable/config path in site');
 }
+export function assertBranchProtection(branch){
+ const rule=branch?.protectionRule,checks=branch?.protection?.required_status_checks;
+ if(branch?.protected!==true||branch.protection?.enabled!==true||rule?.pattern!=='main'||rule.allowsForcePushes!==false||rule.allowsDeletions!==false||!Number.isInteger(rule.requiredApprovingReviewCount)||rule.requiredApprovingReviewCount<0||!rule.requiredStatusCheckContexts?.includes('check')||checks?.enforcement_level!=='everyone'||!checks.checks?.some(check=>check.context==='check'&&check.app_id===15368))throw Error('Controller main must enforce the trusted check for everyone and deny force/delete');
+}
+export function assertControllerChecks(payload,commit){
+ if(!payload?.check_runs?.some(run=>run.name==='check'&&run.app?.id===15368&&run.head_sha===commit&&run.status==='completed'&&run.conclusion==='success'))throw Error('Executing controller main commit must have a successful trusted check');
+}
 export function assertProtection(branch,environment,policy,controllerCommit){
- if(branch.protected!==true||environment.can_admins_bypass!==false||(controllerCommit&&branch.commit?.sha!==controllerCommit)||environment.deployment_branch_policy?.protected_branches!==true||!environment.protection_rules?.some(r=>r.type==='required_reviewers'&&r.reviewers?.some(x=>x.reviewer?.login===policy.reviewer)))throw Error('Controller branch and human approval must be enforced before publishing');
+ assertBranchProtection(branch);
+ const reviewerRules=environment?.protection_rules?.filter(r=>r.type==='required_reviewers')||[];
+ const reviewers=reviewerRules.length===1?reviewerRules[0].reviewers:[];
+ if(environment?.can_admins_bypass!==false||(controllerCommit&&branch.commit?.sha!==controllerCommit)||environment.deployment_branch_policy?.protected_branches!==true||environment.deployment_branch_policy?.custom_branch_policies!==false||reviewers?.length!==1||reviewers[0].type!=='User'||reviewers[0].reviewer?.type!=='User'||reviewers[0].reviewer?.login!==policy.reviewer)throw Error('Controller branch and exact human approval must be enforced before publishing');
 }
 export function destination(root,name){const resolved=path.resolve(root,name);if(!resolved.startsWith(path.resolve(root)+path.sep))throw Error('Unsafe destination');return resolved;}
 
