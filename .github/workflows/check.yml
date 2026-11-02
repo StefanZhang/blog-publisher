@@ -21,7 +21,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - run: npm test
-      - run: python3 -m unittest discover -s tests -p 'test_*.py'
+      - name: Install signed secret-encryption test dependency
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-nacl
+      - run: /usr/bin/python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Install isolated Nginx test dependency
         run: |
           sudo apt-get update -qq

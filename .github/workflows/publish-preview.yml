@@ -14,8 +14,6 @@ on:
         description: Retry a previously requested build after checking its logs
         type: boolean
         default: false
-  schedule:
-    - cron: '*/15 * * * *'
 permissions:
   contents: read
 concurrency:

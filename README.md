@@ -4,30 +4,16 @@ This public repository contains only trusted publishing code. Blog content, imag
 
 ## 人与 LLM 的日常流程
 
-1. LLM 在私有博客仓库创建内容 PR；源码 CI 检查后，由维护者合并。
-2. 成功 main CI 上传临时artifact（3天）并将原ZIP长期保存到私有Release `sealed-<run-id>-<attempt>`；归档job失败则整个run失败。本控制仓库每15分钟检查一次最新 main 构建；GitHub schedule 可能延迟，不承诺实时。
-3. inspect 只读私有Release，核对tag/run/attempt/commit并下载校验原ZIP摘要、源码 commit、封存 SHA、无迁移缺口和固定目标。它不执行包内脚本，不构建文章或图片。
-4. 在 Actions run 的 Summary 中核对 run、commit、hash 与目标，由 Stefan 在 **Review deployments → preview** 人工批准；这次批准涵盖预览验收成功后对公开 `.cn` 的更新交接。
-5. publish 重新下载同一包、再次检查 main 未变，上传 `release-preview`，对固定部署URL和别名分别逐文件、历史URL及noindex验收，并上传兼容 schema 2 的无内容 preview receipt。
-6. 可信 `cn-handoff.mjs` 重新校验封存包、两个URL回执和交付manifest，创建 `environment=cn-pilot` 的 GitHub Deployment元数据及success状态。它不向VPS推送，也不携带SSH或新的Secret。
-7. 香港端匿名读取该元数据，等整个publisher run **completed/success** 且attempt/commit/main/workflow身份吻合后，下载固定URL上的完整静态文件并独立验收、切换。handoff成功不证明VPS已安装；以VPS安装回执和 `.cn` 实际验收为准。
+新流程见 [CONTENT-PUBLICATION.md](docs/CONTENT-PUBLICATION.md)：LLM 提交纯内容 PR → Stefan 本人审阅合并 → 两目标 main CI 和私有归档 → 自动预览验收 → Pages / 香港发布 → 独立线上验收。`content-policy.json.enabled` 决定是否启用；接入验收前保持关闭。GitHub schedule 每15分钟检查，可能延迟。
 
-手工立即触发（维护者使用；日常Agent默认等待轮询，无需本仓库写权限）：
-
-```sh
-gh workflow run publish-preview.yml --repo StefanZhang/blog-publisher --ref main -f build_run_id=latest
-# 指定确切成功 main run/hash：
-gh workflow run publish-preview.yml --repo StefanZhang/blog-publisher --ref main -f build_run_id=BUILD_RUN_ID -f artifact_hash=ARTIFACT_HASH
-```
-
-替换大写占位符再执行。同一 run 不重复发布；确认先前失败原因后使用 `-f retry=true`。私有归档缺失或 main 前进时停止；重新检查原因并审批，不为恢复旧版本临时重建。等待人批准期间，后续定时运行受全局 concurrency 限制，不能绕过审批。失败包不会自动回滚；核对上一次成功的预览部署，在维护者授权下回退并重新验收。
+代码、配置、服务升级仍使用原人工审批工作流；自动内容入口不降低旧环境的审批规则。正式 `.com` DNS 切换是独立步骤，Pages 项目验收不能冒充正式域验收。
 
 ## 权限与一次性设置
 
 - main 受保护：PR、成功的 `check`，禁止强推/删除并包含管理员。仅维护者可写本控制仓库；单人维护不要求作者给自己的 PR 做不可能的自我批准，CODEOWNERS仅为审阅路由。
 - `preview` Environment：仅 protected branches，StefanZhang 为 required reviewer，禁止管理员 bypass。允许 Stefan 批准自己手动发起的 run；日常 Agent 使用独立身份，不能是 Stefan 的 owner 会话。
 - repository secret `SOURCE_READ_TOKEN`：仅私有博客仓库，Actions **Read-only** 和 Contents **Read-only** 的 fine-grained PAT，不含写入、管理或其他仓库。设置到这里，不能设到博客仓库。
-- `preview` Environment secrets：`CLOUDFLARE_ACCOUNT_ID`、仅目标账户 **Cloudflare Pages Edit** 的 `CLOUDFLARE_API_TOKEN`。不要使用 Global API Key、GitHub owner OAuth 或临时 Wrangler OAuth 充当长期 CI secret。Pages 权限是账户级，`--branch`不是 IAM 隔离，所以预览也必须人批准。
+- `preview` Environment secrets：`CLOUDFLARE_ACCOUNT_ID`、仅目标账户 **Cloudflare Pages Edit** 的 `CLOUDFLARE_API_TOKEN`。不要使用 Global API Key、GitHub owner OAuth 或临时 Wrangler OAuth 充当长期 CI secret。Pages 权限是账户级，`--branch`不是 IAM 隔离；维护入口仍需人批准。自动纯内容入口由完整源码基线、本人合并证明、受保护发布器和独立环境约束。
 - 代码维护与日常 LLM 分离：默认日常Agent对本仓库没有Actions/Contents写权限，轮询已能请求preview。若另行授权独立bot触发，必须验证它不是required reviewer；不要把Stefan本人签发的Actions-write PAT交给Agent，它仍代表Stefan，不能靠token名称或窄权限宣称无法审批。推荐独立App/bot只限私有源码库，日常Agent不持有owner会话。
 - 所有 secrets 通过 GitHub 设置界面/受控 CLI 写入，不贴在聊天、issue或日志里。记录 token 到期日，在到期前由维护者轮换并重跑预览。
 

@@ -47,6 +47,12 @@ class PullerTests(unittest.TestCase):
         active=(self.root/'active').resolve();self.assertEqual((active/'site/index.html').read_bytes(),self.f.bytes['index.html']);self.assertEqual((active/'site/_delivery/manifest.json').read_bytes(),self.f.data)
         config=(active/'nginx/server.conf').read_text();self.assertIn(str(active/'site'),config);self.assertNotIn('root '+str(self.root/'active'),config);self.assertIn('/var/lib/static-node-monitor/ok',config);self.assertNotIn('add_header X-Robots-Tag',config)
         self.assertEqual(self.run_pull()['status'],'unchanged');self.assertEqual(len(self.f.downloads),3);self.assertTrue(self.old.exists())
+    def test_content_workflow_is_explicitly_allowed_but_arbitrary_workflow_is_not(self):
+        self.f.run['path']='.github/workflows/publish-content.yml'
+        self.assertEqual(self.run_pull()['status'],'deployed')
+        self.f.run['path']='.github/workflows/unreviewed.yml'
+        self.f.deployment['id']+=1
+        with self.assertRaisesRegex(ValueError,'identity'):self.run_pull()
     def test_failure_before_activation_keeps_old(self):
         self.f.corrupt=True
         with self.assertRaisesRegex(ValueError,'identity'):self.run_pull()

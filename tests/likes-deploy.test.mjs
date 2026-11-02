@@ -218,3 +218,7 @@ test('workflow confines the dedicated token to human-approved publication and up
  assert.equal((workflow.match(/node-version: '24.22.2'/g)||[]).length,2);
  for(const line of workflow.split('\n').filter(line=>line.includes('uses:'))) assert.match(line,/@[a-f0-9]{40}(?: |$)/);
 });
+
+test('content-only publication does not upload or promote an unchanged ID set',async()=>{
+ const h=harness();const result=await publishWorker({...h.options,ids:['21'],skipUnchanged:true});assert.equal(result.changed,false);assert.equal(result.workerVersion,oldVersion);assert.equal(h.calls.length,0);assert.deepEqual(h.verified,[['21']]);
+});

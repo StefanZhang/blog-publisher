@@ -74,7 +74,7 @@ test('matching manifest cannot hide stale homepage, bad health/www or a later co
 
 test('workflow is read-only, main-only, independently triggered and retains only metadata receipt',async()=>{
  const workflow=await fs.readFile(new URL('../.github/workflows/verify-cn.yml',import.meta.url),'utf8');
- assert.match(workflow,/workflows: \[publish-sealed-preview\]/);assert.match(workflow,/types: \[completed\]/);assert.match(workflow,/timeout-minutes: 20/);
- assert.match(workflow,/contents: read\n  actions: read/);assert.ok(!/secrets\.|: write|environment:/.test(workflow));
+ assert.match(workflow,/workflows: \[publish-sealed-preview, publish-content-dual\]/);assert.match(workflow,/types: \[completed\]/);assert.match(workflow,/timeout-minutes: 40/);
+ assert.match(workflow,/contents: read\n  actions: read/);assert.ok(!/: write|environment:|CLOUDFLARE_|SSH/.test(workflow));assert.match(workflow,/SOURCE_READ_TOKEN/);
  assert.match(workflow,/ref: main/);assert.match(workflow,/path: \.work\/cn-installation-identity\.json/);
 });

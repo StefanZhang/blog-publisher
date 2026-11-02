@@ -1,5 +1,7 @@
 # .com 同包生产发布（接入中，未切 DNS）
 
+日常纯内容自动双站更新见 [CONTENT-PUBLICATION.md](CONTENT-PUBLICATION.md)；以下为保留的人工维护入口。
+
 生产源构建固定为私库 `build-production.yml`，配置 `release.production.config.json`；现有 `.cn` `deploy.yml` 与 receiver 保留。不能把 `.cn` artifact 改域后上线。
 
 ## 一次性配置
@@ -8,7 +10,7 @@
 
 `policy.production.json` 绑定独立源码 workflow、完整配置、控制文件、构建程序 SHA；`policy.json` 继续绑定 .cn。两个包分别封存；每个目标的预览到生产均不重建。共享 source-stage 保留私库、current-main、归档下载 SHA、控制文件和 CI loopback 的全部门禁。
 
-## 正常 .com 更新入口（先人工触发，审批不可代办）
+## 代码/配置维护的 .com 更新入口（人工审批不可代办）
 
 运行 `publish-sealed-production`，mode=stage，build_run_id 填成功的当前 main **production build** run（或 latest），可填写准确 artifact_hash。
 

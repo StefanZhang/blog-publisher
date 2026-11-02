@@ -21,7 +21,7 @@ const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.
 
 export function assertHandoffContext(env) {
   if (env.GITHUB_ACTIONS !== 'true' || env.GITHUB_REPOSITORY !== CONTROLLER ||
-      env.GITHUB_REF !== 'refs/heads/main' || env.GITHUB_WORKFLOW_REF !== CONTROLLER+'/'+WORKFLOW+'@refs/heads/main' ||
+      env.GITHUB_REF !== 'refs/heads/main' || ![CONTROLLER+'/'+WORKFLOW+'@refs/heads/main', CONTROLLER+'/.github/workflows/publish-content.yml@refs/heads/main'].includes(env.GITHUB_WORKFLOW_REF) ||
       !['schedule', 'workflow_dispatch'].includes(env.GITHUB_EVENT_NAME) || !SHA.test(env.GITHUB_SHA || '') ||
       !ID.test(env.GITHUB_RUN_ID || '') || !ID.test(env.GITHUB_RUN_ATTEMPT || '') ||
       !Number.isSafeInteger(Number(env.GITHUB_RUN_ATTEMPT)) || !ID.test(env.SOURCE_RUN || '') ||
