@@ -25,3 +25,7 @@ workflow 与 .cn 共用 Pages 并发锁；等待 .com 审批期间 .cn preview �
 任意策略、预览、服务、字节验证失败都退出非零，保留回执；不得把失败的 .com 验收改为成功或降低资源时限。source main/控制器更新或预览过期需要重新触发审批。upload 成功但后验失败可能已经改变 Pages main；保留 deployment ID，使用预先记录的成功 Pages 版本恢复；首次切域失败恢复精确旧 DNS/规则快照及WordPress原站。失败不自动删除旧包、评论或媒体。
 
 历史 WordPress 和原始备份至少保留30天，退役另行授权。`.cn` 无本次交接元数据，不会因 .com stage 自动换包。网站新ID仍要先发布独立Worker known-ids。
+
+## 首切前说说图片门禁
+
+2026-11-02 在旧包预览通过后发现：原始说说的 5 张图片未出现在内容/渲染中，旧资源测试没有覆盖这类缺失。因此取消 run 41504929235 的待审 production，不改变 DNS。source PR 恢复图片并新增源/渲染身份检查；两个 policy 固定新增检查器的源码 SHA，production 同步审阅 prepare 的新检查步骤。该 policy 版本只接受修复后的 CI 包，不能复用旧 hash 或旧预览回执。

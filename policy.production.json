@@ -31,8 +31,11 @@
     "scripts/release/archive.mjs": "2c4f3b4d26b5778b49697e5d9840a823ea6f72defbf94cbeb543006681bd6700",
     "scripts/lib/release-archive.mjs": "8669d1c8b0b70077b7af98024814feaea6fa07e5932a59d69a0a275802e2fdae",
     ".github/workflows/build-production.yml": "1e5ea40da51a2b8d6720f956609d9476a39061f363d6f181ebed42b2c320eb5d",
-    "scripts/release/prepare.mjs": "941da83757657d7e0021320bcc64bbb5760018d0805b00d3cbe2f1fc7e0f6baf",
+    "scripts/release/prepare.mjs": "929ef1b62e2d79ebaf1382e137ccde15e5569103dba8435a72f9a5e8a4cc2c38",
     "scripts/lib/release-profile.mjs": "383c7007f0070a998e504492e605e6d92af839d39058eeec2fc96d8191278f9c",
-    "release.production.config.json": "f5dbb8ac7afa57970316be4ed3e86ee54207838e78df8069f4b7e43709f57ec3"
+    "release.production.config.json": "f5dbb8ac7afa57970316be4ed3e86ee54207838e78df8069f4b7e43709f57ec3",
+    "scripts/check-source-images.mjs": "772bee410a0ff3abf66cd9e2e119f5bfbb9fdefd7daf7be591b68583510d8f58",
+    "scripts/check-notes-images.mjs": "296afd6b7641057c484978ea80bbb371e1f5353f88d6988588b9ad98aa1c0181",
+    "scripts/lib/notes-images.mjs": "530165aa1af8965ba08674742597fdd903f11e5e894ce920d4ccf9d9e2348324"
   }
 }

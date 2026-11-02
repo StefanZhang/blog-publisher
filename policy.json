@@ -29,6 +29,9 @@
     "scripts/optimize-images.mjs": "6789870aaded026ebd03a32bc40924fa7eb98f20e1898aec8317ac3546c9ad0d",
     ".github/workflows/deploy.yml": "a7007783b7c323fa3337704b9cc61cd6f886dc3298e063a1f8d90622b1e84c07",
     "scripts/release/archive.mjs": "2c4f3b4d26b5778b49697e5d9840a823ea6f72defbf94cbeb543006681bd6700",
-    "scripts/lib/release-archive.mjs": "8669d1c8b0b70077b7af98024814feaea6fa07e5932a59d69a0a275802e2fdae"
+    "scripts/lib/release-archive.mjs": "8669d1c8b0b70077b7af98024814feaea6fa07e5932a59d69a0a275802e2fdae",
+    "scripts/check-source-images.mjs": "772bee410a0ff3abf66cd9e2e119f5bfbb9fdefd7daf7be591b68583510d8f58",
+    "scripts/check-notes-images.mjs": "296afd6b7641057c484978ea80bbb371e1f5353f88d6988588b9ad98aa1c0181",
+    "scripts/lib/notes-images.mjs": "530165aa1af8965ba08674742597fdd903f11e5e894ce920d4ccf9d9e2348324"
   }
 }
