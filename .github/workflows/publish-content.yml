@@ -5,6 +5,10 @@ on:
     - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
+      readiness_only:
+        description: Read-only credentials and paired archive integration test; no publication
+        type: boolean
+        default: false
       retry:
         description: Retry current main only after inspecting a failed or cancelled attempt
         type: boolean
@@ -16,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   inspect:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && !inputs.readiness_only
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -82,4 +86,33 @@ jobs:
           name: dual-publication
           path: .work/dual-publication.json
           if-no-files-found: warn
+          retention-days: 90
+  readiness:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.readiness_only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: content-auto
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Read-only credential and sealed pair integration
+        run: node scripts/content-readiness.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_READ_TOKEN: ${{ secrets.SOURCE_READ_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_LIKES_API_TOKEN: ${{ secrets.CLOUDFLARE_LIKES_API_TOKEN }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: content-readiness
+          path: .work/content-readiness.json
+          if-no-files-found: error
           retention-days: 90
