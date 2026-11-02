@@ -1,5 +1,6 @@
-import fs from 'node:fs/promises';import path from 'node:path';import {spawnSync} from 'node:child_process';import {createHash} from 'node:crypto';
-import {readProtection} from './protection.mjs';
+import fs from 'node:fs/promises';import path from 'node:path';import {spawnSync} from 'node:child_process';
+import {downloadArchive} from './archive-source.mjs';
+import {readProtection,verifyControllerChecks} from './protection.mjs';
 import {assertRun,assertRecord,assertProtection,assertSourceFile} from './policy.mjs';import {checkSeal} from './release/files.mjs';
 const policy=JSON.parse(await fs.readFile(new URL('../policy.json',import.meta.url),'utf8'));
 const command=process.argv[2], root=path.resolve('.work');
@@ -16,6 +17,7 @@ async function emit(data){
 async function protect(){
  if(process.env.GITHUB_REPOSITORY!==policy.controllerRepo||process.env.GITHUB_REF!=='refs/heads/main')throw Error('Publishing runs only on controller main');
  assertProtection(await readProtection(ownToken,policy.controllerRepo),await api('environments/preview',true),policy,process.env.GITHUB_SHA);
+ if(command!=='finish')await verifyControllerChecks(ownToken,policy.controllerRepo,process.env.GITHUB_SHA);
 }
 async function currentRun(){
  const main=(await api('branches/main')).commit.sha;
@@ -27,20 +29,11 @@ async function currentRun(){
 async function download(run){
  for(const name of Object.keys(policy.sourceFileHashes)){const file=await api('contents/'+name+'?ref='+run.head_sha);if(file.encoding!=='base64')throw Error('Unexpected source file response');assertSourceFile(name,Buffer.from(file.content,'base64'),policy);}
 
- const artifacts=(await api('actions/runs/'+run.id+'/artifacts?per_page=100')).artifacts.filter(a=>a.name==='sealed-'+run.id&&!a.expired);
- if(artifacts.length!==1)throw Error('No unique unexpired sealed main artifact; rebuild source main');
- const artifact=artifacts[0];if(artifact.size_in_bytes>250*1024*1024||!/^sha256:[a-f0-9]{64}$/.test(artifact.digest||''))throw Error('Artifact size/digest policy failed');
- const response=await fetch('https://api.github.com/repos/'+policy.sourceRepo+'/actions/artifacts/'+artifact.id+'/zip',{headers:{Authorization:'Bearer '+readToken},redirect:'manual',signal:AbortSignal.timeout(30000)});
- if(response.status!==302)throw Error('Expected signed artifact download URL');
- const location=new URL(response.headers.get('location'));
- if(location.protocol!=='https:'||!(location.hostname.endsWith('.blob.core.windows.net')||location.hostname.endsWith('.actions.githubusercontent.com')))throw Error('Unexpected artifact storage host');
- // The signed redirect receives no GitHub Authorization header.
- const zip=await fetch(location,{redirect:'error',signal:AbortSignal.timeout(180000)});if(!zip.ok)throw Error('Artifact download failed');
- let count=0;const hash=createHash('sha256');await fs.mkdir(root,{recursive:true});const archive=path.join(root,'artifact.zip');const out=await fs.open(archive,'wx');
- try{for await(const chunk of zip.body){count+=chunk.length;if(count>250*1024*1024)throw Error('Artifact exceeds limit');hash.update(chunk);await out.write(chunk);}}finally{await out.close();}
- if(count!==artifact.size_in_bytes||'sha256:'+hash.digest('hex')!==artifact.digest)throw Error('GitHub ZIP digest/size mismatch');
+ const archived=await downloadArchive(run,api,readToken,root);
+ const archive=path.join(root,'artifact.zip');
  const release=path.join(root,'release');const child=spawnSync('python3',['scripts/unpack.py',archive,release],{encoding:'utf8'});if(child.status!==0)throw Error('Safe extraction failed: '+child.stderr.slice(-1500));
- const record=await checkSeal(release);const expected=process.env.EXPECTED_HASH||record.artifactHash;
+ const record=await checkSeal(release);const expected=process.env.EXPECTED_HASH||archived.artifactHash;
+ if(record.artifactHash!==archived.artifactHash)throw Error('Archived artifact seal mismatch');
  if(!/^[a-f0-9]{64}$/.test(expected))throw Error('Invalid artifact hash');assertRecord(record,policy,run.head_sha,expected);
  const local=JSON.parse(await fs.readFile(path.join(release,'verified-local.json'),'utf8'));
  if(!local.passed||local.kind!=='local'||local.scope!=='static'||local.releaseHash!==record.artifactHash||local.failures?.length!==0)throw Error('Missing successful CI loopback acceptance');

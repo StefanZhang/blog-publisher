@@ -9,8 +9,11 @@ export function assertRecord(record,policy,commit,hash){
  for(const name of Object.keys(record.files))if(name.split('/').some(s=>s.startsWith('.'))||/(^|\/)(functions|wrangler\.jsonc?|wrangler\.toml|package\.json|node_modules)(\/|$)/.test(name))throw Error('Unexpected executable/config path in site');
 }
 export function assertBranchProtection(branch){
- const rule=branch?.protectionRule;
- if(branch?.protected!==true||rule?.pattern!=='main'||rule.isAdminEnforced!==true||rule.allowsForcePushes!==false||rule.allowsDeletions!==false||rule.requiresStatusChecks!==true||rule.requiresStrictStatusChecks!==true||rule.requiresApprovingReviews!==true||!Number.isInteger(rule.requiredApprovingReviewCount)||rule.requiredApprovingReviewCount<0||!rule.requiredStatusChecks?.some(check=>check.context==='check'&&check.app?.databaseId===15368)||rule.bypassPullRequestAllowances?.totalCount!==0||rule.bypassForcePushAllowances?.totalCount!==0)throw Error('Controller main protection must enforce trusted CI, strict updates, admins, PR and no bypass/force/delete');
+ const rule=branch?.protectionRule,checks=branch?.protection?.required_status_checks;
+ if(branch?.protected!==true||branch.protection?.enabled!==true||rule?.pattern!=='main'||rule.allowsForcePushes!==false||rule.allowsDeletions!==false||!Number.isInteger(rule.requiredApprovingReviewCount)||rule.requiredApprovingReviewCount<0||!rule.requiredStatusCheckContexts?.includes('check')||checks?.enforcement_level!=='everyone'||!checks.checks?.some(check=>check.context==='check'&&check.app_id===15368))throw Error('Controller main must enforce the trusted check for everyone and deny force/delete');
+}
+export function assertControllerChecks(payload,commit){
+ if(!payload?.check_runs?.some(run=>run.name==='check'&&run.app?.id===15368&&run.head_sha===commit&&run.status==='completed'&&run.conclusion==='success'))throw Error('Executing controller main commit must have a successful trusted check');
 }
 export function assertProtection(branch,environment,policy,controllerCommit){
  assertBranchProtection(branch);
