@@ -135,6 +135,8 @@ export async function publishWorker({policy, ids, worker, cf, wrangler, verify, 
     if (after.versionId !== uploaded) throw Error('Published Worker version could not be confirmed');
     if (idsHash(versionIds(await cf('versions/'+after.versionId),after.versionId,policy)) !== idsHash(ids)) throw Error('Published IDs could not be confirmed');
     await verify(ids);
+    const accepted = activeVersion(await cf('deployments'));
+    if (accepted.deploymentId !== after.deploymentId || accepted.versionId !== after.versionId) throw Error('Active deployment changed during publication acceptance');
     return {workerVersion:uploaded,deploymentId:after.deploymentId,previousVersion:before.versionId,idsSHA256:idsHash(ids),idCount:ids.length};
   } catch (failure) {
     let current;

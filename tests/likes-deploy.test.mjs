@@ -116,7 +116,16 @@ test('successful flow uploads and verifies before promotion, preserves triggers 
  assert.deepEqual(h.calls.map(c=>c.slice(0,2)),[['versions','upload'],['versions','deploy']]);
  assert.ok(h.calls[0].includes('--experimental-auto-create=false'));
  assert.equal(h.calls[1][2],newVersion+'@100%');assert.deepEqual(h.verified,[['21'],['21','22']]);
- assert.equal(h.reads,3);
+ assert.equal(h.reads,4);
+});
+test('a maintainer version change during successful HTTP acceptance prevents a success receipt',async()=>{
+ const h=harness(),base=h.options.cf;let changed=false;
+ h.options.verify=async ids=>{if(ids.length===2)changed=true;};
+ h.options.cf=async endpoint=>changed&&endpoint==='deployments'
+  ? deployment('66666666-6666-4666-8666-666666666666',newDeployment)
+  : base(endpoint);
+ await assert.rejects(()=>publishWorker(h.options),/active version changed; automatic rollback refused/);
+ assert.equal(h.calls.length,2);
 });
 test('missing metadata, missing SALT, removing deployed additions or failed prehealth never uploads',async()=>{
  for(const kind of ['metadata','salt','remove','health']) {
