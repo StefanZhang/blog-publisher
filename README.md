@@ -5,10 +5,10 @@ This public repository contains only trusted publishing code. Blog content, imag
 ## 人与 LLM 的日常流程
 
 1. LLM 在私有博客仓库创建内容 PR；源码 CI 检查后，由维护者合并。
-2. 成功 main CI 上传 `sealed-<run-id>`（保留3天）。本控制仓库每15分钟检查一次最新 main 构建；GitHub schedule 可能延迟，不承诺实时。
-3. inspect 下载并校验 GitHub artifact ZIP 摘要、源码 commit、封存 SHA、无迁移缺口和固定目标。它不执行包内脚本，不构建文章或图片。
+2. 成功 main CI 上传临时artifact（3天）并将原ZIP长期保存到私有Release `sealed-<run-id>-<attempt>`；归档job失败则整个run失败。本控制仓库每15分钟检查一次最新 main 构建；GitHub schedule 可能延迟，不承诺实时。
+3. inspect 只读私有Release，核对tag/run/attempt/commit并下载校验原ZIP摘要、源码 commit、封存 SHA、无迁移缺口和固定目标。它不执行包内脚本，不构建文章或图片。
 4. 在 Actions run 的 Summary 中核对 run、commit、hash 与目标，由 Stefan 在 **Review deployments → preview** 人工批准。
-5. publish 重新下载同一包、再次检查 main 未变，然后只上传 `release-preview`，逐文件和历史 URL 验收。成功记录为 GitHub Deployment；失败保持红色，不称为上线成功。
+5. publish 重新下载同一包、再次检查 main 未变，然后只上传 `release-preview`，对固定部署URL和别名分别逐文件、历史URL及noindex验收。成功记录为 GitHub Deployment；失败保持红色，不称为上线成功。
 
 手工立即触发（维护者使用；日常Agent默认等待轮询，无需本仓库写权限）：
 
@@ -18,7 +18,7 @@ gh workflow run publish-preview.yml --repo StefanZhang/blog-publisher --ref main
 gh workflow run publish-preview.yml --repo StefanZhang/blog-publisher --ref main -f build_run_id=BUILD_RUN_ID -f artifact_hash=ARTIFACT_HASH
 ```
 
-替换大写占位符再执行。同一 run 不重复发布；确认先前失败原因后使用 `-f retry=true`。构建过期或 main 前进时停止，重建/重新审批。等待人批准期间，后续定时运行受全局 concurrency 限制，不能绕过审批。失败包不会自动回滚；核对上一次成功的预览部署，在维护者授权下回退并重新验收。
+替换大写占位符再执行。同一 run 不重复发布；确认先前失败原因后使用 `-f retry=true`。私有归档缺失或 main 前进时停止；重新检查原因并审批，不为恢复旧版本临时重建。等待人批准期间，后续定时运行受全局 concurrency 限制，不能绕过审批。失败包不会自动回滚；核对上一次成功的预览部署，在维护者授权下回退并重新验收。
 
 ## 权限与一次性设置
 
@@ -41,8 +41,30 @@ Node 固定 `.nvmrc`；Actions固定commit SHA；Wrangler固定4.45.0。更新�
 
 工作流会拒绝已过期的控制仓库版本和管理员bypass，独立取回源码中的编码脚本、锁文件、Node版本和CI工作流并核对固定SHA。这样，日常内容/图片新增可以继续发布；编码器或构建工具链升级必须先审阅旧immutable资源兼容性，不能静默替换相同URL的字节。
 
-成功发布后仅上传无内容的JSON回执（run/commit/hash/deployment URL/文件与旧链接数量），保留90天；不上传私有站点包或源码。这不能替代封存包长期备份。
+成功发布后仅上传无内容的JSON回执（必须同时具备fixed+alias同包成功证据）（run/commit/hash/deployment URL/文件与旧链接数量），保留90天；不上传私有站点包或源码。这不能替代封存包长期备份。
 
 Pages部署元数据显式使用已批准的博客源码commit与CI run，控制仓库commit另记回执；否则Wrangler会把控制仓库HEAD误显示成站点源码。当前分支修复须在下一次实际preview后核对Cloudflare Source字段。
 
 验收失败会记录期望/实际长度与SHA，不打印网页内容。首次发布若失败，先保留失败日志并对固定部署和别名重新完整验收；确认同一包匹配后可重跑失败job，最终仍须完整验收0失败才生成成功回执。不要从一次已消失的差异直接推断缓存或传播机制。
+
+
+## 保护查询的真实权限范围
+
+真实PR CI已经验证：自带contents:read token不能查询完整branchProtectionRule/管理专用REST保护接口。现在使用refUpdateRule与branch状态核对可信check(app15368)、对everyone强制、禁强推/删除，环境只允许精确的Stefan User reviewer/protected branches且禁止bypass。发布inspect/stage另用checks:read要求当前controller SHA已有成功可信check，不以“protected=true”冒充这些证据。
+
+管理员专属strict及完整bypass配置仍需维护者审计，不宣称全部保护字段自动覆盖；不为查询新增admin secret。单人仓库required review count仍可为0；日常Agent不持有owner身份。
+
+## 私有归档与恢复
+
+只有私有源码main构建之后的独立archive job有Contents:write / Actions:read，用户已明确批准；public publisher仅使用既有SOURCE_READ_TOKEN读取Release，不新增写入私库或归档凭据。Release先draft，原ZIP与archive.json上传后实际下载比SHA才发布；run_attempt隔离重跑，冲突不覆盖。归档不受Actions三天期限影响，但不是不可删除/异地备份。
+
+人工恢复时，从可信部署回执确认run/attempt/hash，在仓库之外的新下载目录取得两资产：
+
+```sh
+gh release download "sealed-${RUN}-${ATTEMPT}" --repo StefanZhang/stefans_blog --pattern "sealed-${RUN}.zip" --pattern archive.json --dir "$DOWNLOAD_DIR"
+node scripts/restore.mjs "$DOWNLOAD_DIR" "$RESTORE_DIR" "$ARTIFACT_HASH"
+```
+
+所有变量须替换为实际值，目录用绝对路径，RESTORE_DIR不得存在或处于Git工作树。restore核对ZIP SHA、数据型安全解包、site seal、source commit和辅助验收URL；不会执行包内脚本或部署。随后在私有源码checkout用其scripts/release/serve.mjs启动恢复包，另在publisher运行scripts/release/verify.mjs --local验收。公开仓库中不得保存完整ZIP。
+
+正常发布仍只接受current main；此工具不是一键线上回滚。失败上传仍可能已更新别名，须保留失败证据并由维护者按已验证包处理，不能伪造success或绕开current-main。production/DNS仍不启用。
