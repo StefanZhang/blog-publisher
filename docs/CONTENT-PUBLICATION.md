@@ -44,3 +44,18 @@ gh workflow run publish-content.yml -R StefanZhang/blog-publisher --ref main -f 
 只重试当前 main，重新下载原封存包并重新验收，不重建。新 main 到来时拒绝旧提升；多个内容合并可合并为最新 commit 一次发布。发布期间维护者不要同时合并代码基线/发布器升级，否则精确版本检查会停止。代码维护继续使用原人工审批 `publish-production.yml` / `publish-preview.yml` / `deploy-likes.yml`。
 
 关闭自动化：通过 reviewed PR 把 enabled 设为 false（紧急停止可由维护者先禁用 workflow，随后记录）；不会改已上线站点。恢复节点旧 unit 使用升级备份和精确 CAS，经维护授权执行，不改网站内容指针。回退网站版本仍使用既有已封存、已验证版本的维护流程。
+
+## 接入证据与只读连通验收
+
+- 源库 PR #11 已合并为 `ce9ea98d19b699f9e95519eae8faedefdb741ee8`；publisher PR #13 合并为 `05b791edc0d49771084634cc3d4e831e1dfad850`，精确 main CI `41531876155` 成功。
+- 香港节点已通过固定升级入口安装 `05b791e`；备份 `/var/backups/stefanzhang-cn/upgrade-05b791edc0d4-20261102T215404059797Z`。站点 active 指针、Nginx/health/timer 摘要与升级前一致，发布与监控 timer 均 active。
+- 人工批准的凭据迁移 run `41532234250` 成功；三个环境 secret 名称已核对，一次性 bootstrap workflow 已禁用。密钥明文没有离开 GitHub runner。
+- 启用前在精确 main CI 成功后运行以下只读集成检查；它使用真实 environment credentials，但只有 GET 和私有归档下载，不调用部署接口。成功不能冒充真实内容发布验收。
+
+```sh
+gh workflow run publish-content.yml -R StefanZhang/blog-publisher --ref main -f readiness_only=true
+```
+
+### GitHub 定时触发的边界
+
+定时任务可能延迟；[GitHub 官方规则](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)还规定，公开仓库60天没有活动时会停用 scheduled workflows。不能把私库文章更新视为公开 publisher 的可靠保活证据，也不能承诺定时器永久运行。维护者需关注 GitHub 的停用通知；若被停用，检查原因后 `gh workflow enable publish-content.yml -R StefanZhang/blog-publisher`，再手动触发同一受门禁保护的入口。此版本不为保活额外授予源码 CI 跨库写权限、不制造空提交；若后续要求消除这个运营依赖，应单独审阅事件驱动触发权限与凭据，而非暗中扩大文章 agent 权限。
