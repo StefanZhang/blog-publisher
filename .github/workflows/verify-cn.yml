@@ -38,7 +38,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CONTROLLER_RUN: ${{ inputs.controller_run_id || github.event.workflow_run.id }}
-      - name: Full online checks for automatic paired publication
+      - name: Full online checks for approved content or maintenance publication
         run: node scripts/verify-dual.mjs
         env:
           GH_TOKEN: ${{ github.token }}

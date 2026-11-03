@@ -66,4 +66,4 @@ gh workflow run publish-content.yml -R StefanZhang/blog-publisher --ref main -f 
 - 源 main `ce9ea98` 的 CN CI/私有归档 `41531650556`、COM CI/私有归档 `41531650316` 均成功。
 - 只读集成 run [41534117764](https://github.com/StefanZhang/blog-publisher/actions/runs/41534117764) 成功：两个真实归档及合并凭证、固定源码策略、Pages 项目/主分支、Worker 版本和124个现有 ID 健康全部通过；部署/DNS写入为0。
 - 在上述证据完成后通过独立 PR 将 enabled 设为 true；源 baseline 本身不是新的内容 PR，启用不会凭空重发维护版本。以后本人合并纯内容 PR 后，等待两目标 CI/归档与定时发现，不再点 preview/production。
-- 正式 `.com` DNS 已切到 Pages，`comVerificationBase` 已经 reviewed PR 改为正式域；`.cn` 同一维护源码已安装。切换、失败项与回退记录见 [COM-2026-11-02](cutovers/COM-2026-11-02.md)。第一条真实内容 PR #12 的两套 PR CI 已通过，仍待 Stefan 本人合并及最终自动 `dual-online` 通过；维护首发不能冒充日常链路实证。
+- 正式 `.com` DNS 已切到 Pages，`comVerificationBase` 已经 reviewed PR 改为正式域；`.cn` 同一维护源码已安装。切换、失败项与回退记录见 [COM-2026-11-02](cutovers/COM-2026-11-02.md)。第一条真实内容 PR #12 已由 Stefan 本人合并为 `2ba81cd`；自然 schedule run `41570766257` 完成双站自动发布，独立 run `41578061932` 各验3319文件/1117历史query、0失败且formalCOMVerified=true。此前超时失败与后续修复保留在 LOSSLESS-DELIVERY.md；日常链路已获该版本的完整实证，后续版本仍须重新验收。

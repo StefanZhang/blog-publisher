@@ -21,3 +21,16 @@ run `41574413082` 已完整保留失败回执：COM的3319文件/1117旧地址�
 此策略同步不会自动发布维护基线，也不使用content-auto代替维护审批。需两个main构建及私有归档（CN `41576579771`、COM `41576579763`）完整成功，再按原protected preview/production维护流程发布两目标，同源码的ZIP分别匹配各自publicationOrigin。第一轮历史版本的最终验收单独留证，不能混用新旧版本数据。
 
 两个main构建和归档均已完整成功。COM包 `3e413ecfab2fd86368554c2bbc6b0a287a855ff78272c0cc98ec640f4f28507c`，ZIP 325,089,206B；CN包 `73a7c82afdfb1a6e1c814c54dcba48183e5ba508fe69e98e5480db3151b1edc4`，ZIP 325,089,354B。ZIP来自GitHub隔离构建，不能用本地实验包替代。16个CN、18个COM被固定的源文件SHA已对照该commit重新计算，全部匹配。
+
+
+## 维护发布后的只读验收（2026-11-03）
+
+旧源码 `2ba81cd` 的独立 run [41578061932](https://github.com/StefanZhang/blog-publisher/actions/runs/41578061932) 已通过：COM/CN 各3319文件、1117历史/query地址、0失败，formalCOMVerified=true。CN资源601,405ms、旧地址103,414ms，完整HTTP命令706,524ms；这是修复后真实外部路径的结果，不是本地或大陆测速。
+
+无损维护 run [41579107775](https://github.com/StefanZhang/blog-publisher/actions/runs/41579107775) 的预览两地址各4346文件/728旧地址通过；Stefan本人批准production后，同包已上传Pages main。生产固定URL的4346/728通过，生产项目别名有一个旧附件目标返回502，job保持失败；精确路径随后在项目别名与正式COM均301→200，最终32,898B、SHA `7131da0d17563717a6484c37deae05af78a3978bbc2378a118ac43699b1ee4a9`。不能从一次复查断言502内部来源，也不把失败run改称成功。
+
+`verify-domain`现在先完整核对生产项目别名，再完整核对正式COM及独立服务，保存两份元数据回执；这是既有只读入口，不重新上传包、不使用Cloudflare写凭据。生产项目步骤失败时也保留固定JSON诊断。没有自动重试或忽略502。
+
+此前维护CN发布只自动验证安装身份（manifest、首页、health、www）；full检查仅适用于内容自动链路。现在同一`verify-cn.yml`对已成功的维护handoff下载其精确私有封存包，检查CN全部文件、历史/query及独立服务，scope=`maintenance-cn-online`，只含CN目标，formalCOMVerified=false。自动内容仍要求双包同source/ID集合及两站完整覆盖。CN整轮25分钟、workflow40分钟及有限单请求预算不变；不新增secret、权限、部署写入或节点程序。
+
+任何新无损版本的最终成功仍需上述正式COM和维护CN各自完整通过，不能复用旧版本3319/1117数据，也不能将安装身份当完整验收。

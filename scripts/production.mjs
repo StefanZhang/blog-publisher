@@ -35,10 +35,12 @@ async function main(){
    await serviceProof(record);
   }
   if(command==='verify-domain'){
+   const projectAlias=await verify('https://stefanzhang-com.pages.dev');
+   await atomicJson('.work/production-project-alias-recheck.json',projectAlias);
    const proof=await verify('https://stefanzhang.com',true);await serviceProof(record);
    const response=await fetch('https://stefanzhang.com/',{redirect:'manual',signal:AbortSignal.timeout(20000)});
    if(response.status!==200||/noindex/i.test(response.headers.get('x-robots-tag')||''))throw Error('Production homepage status/indexing failed');await response.body?.cancel();
-   await atomicJson('.work/production-domain-receipt.json',proof);await summary('Formal .com full HTTP acceptance passed for '+record.artifactHash);
+   await atomicJson('.work/production-domain-receipt.json',proof);await summary('Pages production alias and formal .com full HTTP acceptance passed for '+record.artifactHash);
   }
   return;
  }

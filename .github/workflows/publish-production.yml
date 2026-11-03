@@ -146,6 +146,14 @@ jobs:
           EXPECTED_HASH: ${{ needs.inspect.outputs.artifact_hash }}
           DEPLOYMENT_URL: ${{ steps.upload.outputs.deployment-url }}
           DEPLOYMENT_ID: ${{ steps.upload.outputs.pages-deployment-id }}
+      - name: Preserve production project HTTP diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-project-diagnostics
+          path: .work/release/verified-static.json
+          if-no-files-found: ignore
+          retention-days: 90
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: production-project-receipt
@@ -178,7 +186,9 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: production-domain-receipt
-          path: .work/production-domain-receipt.json
+          path: |
+            .work/production-domain-receipt.json
+            .work/production-project-alias-recheck.json
           if-no-files-found: error
           retention-days: 90
       - name: Retain metadata-only HTTP diagnostics even when full acceptance fails
@@ -186,6 +196,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: production-domain-diagnostics
-          path: .work/release/verified-full.json
+          path: |
+            .work/release/verified-full.json
+            .work/release/verified-static.json
+            .work/production-project-alias-recheck.json
           if-no-files-found: ignore
           retention-days: 90
