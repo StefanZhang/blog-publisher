@@ -26,14 +26,19 @@
   "sourceFileHashes": {
     ".nvmrc": "9185b9f67843cabfa8054f65ce47ce0b52036b0bfe07ae5a6b834d97cc127140",
     "package-lock.json": "20c9ac341360da22674a4e5225922964c0a35c126ddb80a63ef3269e930357a2",
-    "scripts/optimize-images.mjs": "6789870aaded026ebd03a32bc40924fa7eb98f20e1898aec8317ac3546c9ad0d",
+    "scripts/optimize-images.mjs": "3a1e59b48628c0eb4a09abbf4240dcd43655188e62ef7e58a28e853943e2ffe7",
     ".github/workflows/deploy.yml": "9d24db21256716aa65fb312f0dbe18dc030115a9a1bcfde5bc845ab3f2f2dc71",
     "scripts/release/archive.mjs": "2c4f3b4d26b5778b49697e5d9840a823ea6f72defbf94cbeb543006681bd6700",
-    "scripts/lib/release-archive.mjs": "8669d1c8b0b70077b7af98024814feaea6fa07e5932a59d69a0a275802e2fdae",
+    "scripts/lib/release-archive.mjs": "3fc157cbcf3b16d79a1d17bad2a456aa72f578fb7601017ab51e739cfa5da2c3",
     "scripts/check-source-images.mjs": "772bee410a0ff3abf66cd9e2e119f5bfbb9fdefd7daf7be591b68583510d8f58",
     "scripts/check-notes-images.mjs": "296afd6b7641057c484978ea80bbb371e1f5353f88d6988588b9ad98aa1c0181",
     "scripts/lib/notes-images.mjs": "0fd2af54b5ef519e0924954546f677ee80a3fda4f972e3097e4f3e3a4563b65e",
     ".github/workflows/build-production.yml": "1b8d204e167725f23db51d96e8f35205d0617fa40859f670dc140d8e20ad1747",
-    "scripts/release/content-approval.mjs": "a1fe03e25db53c2bbc5e603351e94f84674716d56db19234d297e4e7e7b0685f"
+    "scripts/release/content-approval.mjs": "a1fe03e25db53c2bbc5e603351e94f84674716d56db19234d297e4e7e7b0685f",
+    "scripts/release/prepare.mjs": "016d2b6942e0cc9f5f18dd5ae36e04bb8dde026a2d848f45d6b9d6ac19208e05",
+    "package.json": "7d07621c26f7ba3c831e54a9e639ecffb446e809d579716fe3444758f154e0f1",
+    "scripts/check-image-identities.mjs": "579a6fec138b0a43d42850b97cf479ad42b90d3b3f1876de83fdd01c06e9257d",
+    "scripts/check-image-fidelity.mjs": "9f2244f13993edd7fcd16728004d0638631fa1809135cab6c6cee33452bb97e8",
+    "scripts/lib/image-compat.mjs": "001ee6c233b182632d5607bac72615fedab60323bd6393022f681d5e3e5a19f0"
   }
 }
