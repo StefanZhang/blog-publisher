@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "sourceCommit": "ce9ea98d19b699f9e95519eae8faedefdb741ee8",
+  "comCI": "41531650316",
+  "cnCI": "41531650556",
+  "pagesProject": "stefanzhang-com",
+  "apex": {
+    "before": {
+      "type": "A",
+      "content": "152.53.39.151",
+      "proxied": true,
+      "ttl": 1,
+      "recordId": "51996519015e2ff7408369fe6737e5ab"
+    },
+    "after": {
+      "type": "CNAME",
+      "content": "stefanzhang-com.pages.dev",
+      "proxied": true,
+      "ttl": 1
+    }
+  },
+  "www": {
+    "before": null,
+    "after": {
+      "type": "CNAME",
+      "content": "stefanzhang-com.pages.dev",
+      "proxied": true,
+      "ttl": 1
+    },
+    "redirect": {
+      "description": "Stefan WWW canonical",
+      "expression": "(http.host eq \"www.stefanzhang.com\")",
+      "targetExpression": "concat(\"https://stefanzhang.com\", http.request.uri.path)",
+      "status": 301,
+      "preserveQuery": true
+    }
+  },
+  "legacyQueries": {
+    "sourceRepo": "StefanZhang/stefans_blog",
+    "file": "deploy/cloudflare/legacy-query-rules.json",
+    "expectedRules": 3,
+    "expectedCases": 389,
+    "enableAtCutover": true
+  },
+  "cacheRule": {
+    "id": "a9ec2e74636d4077949f083bc7164741",
+    "name": "WordPress 静态资源缓存",
+    "change": "edge TTL only: override 2592000 -> respect origin, bypass when absent",
+    "preserveOtherSettings": true
+  },
+  "protected": [
+    "MX",
+    "likes.stefanzhang.com",
+    "comments.stefanzhang.com",
+    "other DNS records",
+    "other redirect rules",
+    "WAF",
+    "Access",
+    "Worker/D1 data",
+    "Artalk data",
+    "CN health/ACME"
+  ],
+  "configurationRule": {
+    "id": "1eff0c1674ec4dbc88175bc8a3993a38",
+    "description": "Stefan Pages: preserve static scripts",
+    "expression": "(http.host in {\"stefanzhang.com\" \"www.stefanzhang.com\"})",
+    "rocket_loader": false,
+    "preserveOtherSettings": true
+  }
+}
