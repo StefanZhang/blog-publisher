@@ -67,6 +67,10 @@ test('target policy permits only sealed publication, reviewed Pages and explicit
 test('CN HTTP verifies every query and health without adding health to sealed file count or requiring noindex',async t=>{
  const f=await fixture(t);const r=await f.run();assert.equal(r.result.status,0,r.result.stderr);assert.equal(r.receipt.filesChecked,1);assert.equal(r.receipt.legacyUrlsChecked,390);assert.equal(r.receipt.passed,true);
  assert.equal(r.calls.filter(c=>new URL(c.url).search).length,389);const health=r.calls.filter(c=>new URL(c.url).pathname==='/healthz');assert.equal(health.length,1);assert.equal(health[0].method,'GET');
+ assert.ok(r.receipt.timing.resourcesMs>=0);assert.ok(r.receipt.timing.legacyMs>=0);
+ assert.equal(r.receipt.timing.slowResources.length,1);assert.equal(r.receipt.timing.slowResources[0].url,'/');
+ assert.equal(r.receipt.timing.slowResources[0].bytes,Buffer.byteLength('sealed fixture'));
+ assert.ok(r.receipt.timing.slowResources[0].ttfbMs>=0);
 });
 
 test('old canonical publication still verifies queries while Pages and local omit host-only queries/health',async t=>{
