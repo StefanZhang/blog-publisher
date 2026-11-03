@@ -59,5 +59,12 @@
     "Worker/D1 data",
     "Artalk data",
     "CN health/ACME"
-  ]
+  ],
+  "configurationRule": {
+    "id": "1eff0c1674ec4dbc88175bc8a3993a38",
+    "description": "Stefan Pages: preserve static scripts",
+    "expression": "(http.host in {\"stefanzhang.com\" \"www.stefanzhang.com\"})",
+    "rocket_loader": false,
+    "preserveOtherSettings": true
+  }
 }

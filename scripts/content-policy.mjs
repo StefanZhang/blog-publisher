@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
 import {assertBranchProtection} from './policy.mjs';
+import {CONTROL_FILES} from './lib/delivery-manifest.mjs';
 export const AUTO_WORKFLOW='StefanZhang/blog-publisher/.github/workflows/publish-content.yml@refs/heads/main';
 export const SOURCE='StefanZhang/stefans_blog';
 const SHA=/^[a-f0-9]{40}$/;
@@ -43,6 +44,6 @@ export function assertPair(cn,com) {
   if(cn.sourceCommit!==com.sourceCommit||JSON.stringify([...cn.contentIds].sort())!==JSON.stringify([...com.contentIds].sort())||cn.config.publicationOrigin!=='https://stefanzhang.cn'||com.config.publicationOrigin!=='https://stefanzhang.com')throw Error('CN and COM packages must represent the same source commit and content IDs');
 }
 export function assertRemoteCoverage(proof,record,base,legacyCount) {
-  const expected=Object.keys(record.files).filter(n=>!['_worker.js','_routes.json'].includes(n)).length;
+  const expected=Object.keys(record.files).filter(n=>!CONTROL_FILES.includes(n)).length;
   if(!proof?.passed||proof.kind!=='remote'||proof.base!==base||proof.releaseHash!==record.artifactHash||proof.failures?.length!==0||proof.filesChecked!==expected||proof.legacyUrlsChecked!==legacyCount||legacyCount<1||!Number.isFinite(Date.parse(proof.verifiedAt))||Date.parse(proof.verifiedAt)>Date.now()||Date.now()-Date.parse(proof.verifiedAt)>15*60000)throw Error('Incomplete or stale remote acceptance');
 }
