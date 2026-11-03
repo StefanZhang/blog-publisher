@@ -1,10 +1,12 @@
 import{test}from'node:test';import assert from'node:assert/strict';import fs from'node:fs/promises';import os from'node:os';import path from'node:path';import{createHash}from'node:crypto';
 import{assertArchive,downloadArchive}from'../scripts/archive-source.mjs';
+import{MAX_ARCHIVE_BYTES}from'../scripts/lib/archive-limits.mjs';
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const run={id:123,run_attempt:2,head_sha:'a'.repeat(40)},release={id:9,draft:false,prerelease:true,tag_name:'sealed-123-2',target_commitish:run.head_sha};const zip=Buffer.from('fixture zip bytes');const meta={schema:1,sourceRepo:'StefanZhang/stefans_blog',sourceRun:'123',sourceAttempt:2,sourceCommit:run.head_sha,artifactHash:'b'.repeat(64),zipBytes:zip.length,zipSHA:sha(zip),assetName:'sealed-123.zip'};
 test('archive must be published, exact source attempt, commit and bounded size',()=>{
  assert.doesNotThrow(()=>assertArchive(meta,run,release));
- for(const change of [{sourceAttempt:1},{sourceCommit:'c'.repeat(40)},{zipBytes:Infinity},{zipBytes:300*1024*1024},{assetName:'../x'},{sourceRun:'other'}])assert.throws(()=>assertArchive({...meta,...change},run,release));
+ assert.doesNotThrow(()=>assertArchive({...meta,zipBytes:325*1024*1024},run,release));
+ for(const change of [{sourceAttempt:1},{sourceCommit:'c'.repeat(40)},{zipBytes:Infinity},{zipBytes:MAX_ARCHIVE_BYTES+1},{assetName:'../x'},{sourceRun:'other'}])assert.throws(()=>assertArchive({...meta,...change},run,release));
  for(const change of [{draft:true},{target_commitish:'main'},{tag_name:'sealed-123-1'}])assert.throws(()=>assertArchive(meta,run,{...release,...change}));
 });
 test('download verified private release ZIP without forwarding token to signed storage',async()=>{

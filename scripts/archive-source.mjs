@@ -1,3 +1,4 @@
+import {MAX_ARCHIVE_BYTES} from './lib/archive-limits.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
@@ -5,7 +6,7 @@ const repo='StefanZhang/stefans_blog';
 export function assertArchive(record,run,release){
  const tag='sealed-'+run.id+'-'+run.run_attempt;
  if(release?.draft!==false||release.prerelease!==true||release.tag_name!==tag||release.target_commitish!==run.head_sha)throw Error('Missing published private archive for this run attempt');
- if(record?.schema!==1||record.sourceRepo!==repo||record.sourceRun!==String(run.id)||record.sourceAttempt!==run.run_attempt||record.sourceCommit!==run.head_sha||!/^[a-f0-9]{64}$/.test(record.artifactHash||'')||!/^[a-f0-9]{64}$/.test(record.zipSHA||'')||!Number.isSafeInteger(record.zipBytes)||record.zipBytes<1||record.zipBytes>250*1024*1024||record.assetName!=='sealed-'+run.id+'.zip')throw Error('Archive identity mismatch');
+ if(record?.schema!==1||record.sourceRepo!==repo||record.sourceRun!==String(run.id)||record.sourceAttempt!==run.run_attempt||record.sourceCommit!==run.head_sha||!/^[a-f0-9]{64}$/.test(record.artifactHash||'')||!/^[a-f0-9]{64}$/.test(record.zipSHA||'')||!Number.isSafeInteger(record.zipBytes)||record.zipBytes<1||record.zipBytes>MAX_ARCHIVE_BYTES||record.assetName!=='sealed-'+run.id+'.zip')throw Error('Archive identity mismatch');
 }
 export async function downloadArchive(run,api,token,root,request=fetch){
  const tag='sealed-'+run.id+'-'+run.run_attempt;
@@ -31,7 +32,7 @@ export async function downloadArchive(run,api,token,root,request=fetch){
  }
  const metadata=assets.find(a=>a.name==='archive.json');const record=JSON.parse((await retrieve(metadata,16384)).body.toString('utf8'));assertArchive(record,run,release);
  const zip=assets.find(a=>a.name===record.assetName);if(zip?.size!==record.zipBytes)throw Error('Archive ZIP size mismatch');
- await fs.mkdir(root,{recursive:true});const downloaded=await retrieve(zip,250*1024*1024,path.join(root,'artifact.zip'));
+ await fs.mkdir(root,{recursive:true});const downloaded=await retrieve(zip,MAX_ARCHIVE_BYTES,path.join(root,'artifact.zip'));
  if(downloaded.sha!==record.zipSHA)throw Error('Archive ZIP SHA mismatch');
  await fs.writeFile(path.join(root,'archive.json'),JSON.stringify(record,null,2)+'\n',{mode:0o600});
  return record;

@@ -68,7 +68,10 @@ export function parseUploadedVersion(output) {
 export function execute(program, args, options = {}) {
   const result = spawnSync(program, args, {encoding:'utf8', timeout:600000, maxBuffer:2*1024*1024, ...options});
   // Never echo child output: it may contain bindings, private paths or provider responses.
-  if (result.error || result.status !== 0) throw Error('Trusted command failed: '+path.basename(program));
+  if (result.error || result.status !== 0) {
+    const reason = result.error?.code === 'ETIMEDOUT' ? 'whole command timed out' : result.error ? 'process error' : 'exit ' + result.status;
+    throw Error('Trusted command failed: '+path.basename(program)+' ('+reason+')');
+  }
   return result.stdout;
 }
 export async function stageApprovedSource({env, sourcePolicy, api, root, stage = async stageEnv => {
