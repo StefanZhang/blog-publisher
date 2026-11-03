@@ -1,3 +1,4 @@
+import {MAX_ARCHIVE_BYTES} from './lib/archive-limits.mjs';
 // Recover a private archived package as data. This command never uploads it.
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -25,7 +26,7 @@ export async function restoreArchive(directory, destination, expectedHash) {
   const metadataFile=path.join(directory,'archive.json');const metadataStat=await fs.lstat(metadataFile);
   if(!metadataStat.isFile()||metadataStat.size>8192)throw Error('Invalid archive metadata file');
   const meta=JSON.parse(await fs.readFile(metadataFile,'utf8'));
-  if(meta.schema!==1||meta.sourceRepo!=='StefanZhang/stefans_blog'||!/^\d+$/.test(meta.sourceRun)||!Number.isSafeInteger(meta.sourceAttempt)||meta.sourceAttempt<1||!/^[a-f0-9]{40}$/.test(meta.sourceCommit)||meta.artifactHash!==expectedHash||!Number.isSafeInteger(meta.zipBytes)||meta.zipBytes<1||meta.zipBytes>250*1024*1024||!/^[a-f0-9]{64}$/.test(meta.zipSHA)||meta.assetName!=='sealed-'+meta.sourceRun+'.zip')throw Error('Invalid archive identity');
+  if(meta.schema!==1||meta.sourceRepo!=='StefanZhang/stefans_blog'||!/^\d+$/.test(meta.sourceRun)||!Number.isSafeInteger(meta.sourceAttempt)||meta.sourceAttempt<1||!/^[a-f0-9]{40}$/.test(meta.sourceCommit)||meta.artifactHash!==expectedHash||!Number.isSafeInteger(meta.zipBytes)||meta.zipBytes<1||meta.zipBytes>MAX_ARCHIVE_BYTES||!/^[a-f0-9]{64}$/.test(meta.zipSHA)||meta.assetName!=='sealed-'+meta.sourceRun+'.zip')throw Error('Invalid archive identity');
   const zip=path.join(directory,meta.assetName);const stat=await fs.lstat(zip);
   if(!stat.isFile()||stat.size!==meta.zipBytes)throw Error('Archive size/type mismatch');
   const hash=createHash('sha256');for await(const chunk of createReadStream(zip))hash.update(chunk);

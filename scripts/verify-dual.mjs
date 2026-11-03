@@ -34,10 +34,23 @@ async function main(){
     for(const target of ['com','cn']) {
       const base=target==='cn'?'https://stefanzhang.cn':evidence.comBase;
       const full=target==='cn'||base==='https://stefanzhang.com';
-      execute(process.execPath,['scripts/release/verify.mjs',packages[target].release,'--base',base,...(full?['--full']:[])]);
-      const proof=JSON.parse(await fs.readFile(path.join(packages[target].release,full?'verified-full.json':'verified-static.json')));
+      // CN checks every file and legacy route over the real overseas path. The
+      // command budget is distinct from the unchanged per-request deadlines.
+      const timeout=target==='cn'?25*60*1000:10*60*1000;
+      const started=Date.now();
+      result.targetAttempts??={};
+      result.targetAttempts[target]={startedAt:new Date(started).toISOString(),timeoutMs:timeout};
+      try {
+        execute(process.execPath,['scripts/release/verify.mjs',packages[target].release,'--base',base,...(full?['--full']:[])],{timeout});
+      } finally {
+        result.targetAttempts[target].durationMs=Date.now()-started;
+        // Preserve the verifier's metadata even on nonzero exit; never expose
+        // arbitrary child output, package HTML or provider credentials.
+        try { result.targets[target]=JSON.parse(await fs.readFile(path.join(packages[target].release,full?'verified-full.json':'verified-static.json'))); }
+        catch(error) { if(error.code!=='ENOENT')throw error; }
+      }
+      const proof=result.targets[target];
       assertRemoteCoverage(proof,packages[target].record,base,JSON.parse(await fs.readFile(path.join(packages[target].release,'legacy-urls.json'))).length+(base===packages[target].record.config.publicationOrigin?JSON.parse(await fs.readFile(path.join(packages[target].release,'query-urls.json'))).length:0));
-      result.targets[target]=proof;
     }
     const record=packages.cn.record;
     const services=await verifyServices({record,policy:policies.cn,env:{...env,SOURCE_RUN:evidence.cnRun},pageKeys:await readCommentPageKeys(packages.cn.release,record)});

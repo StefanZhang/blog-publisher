@@ -1,3 +1,4 @@
+import {MAX_ARCHIVE_BYTES} from './lib/archive-limits.mjs';
 // Maintainer-only local staging. No Cloudflare calls, deploy commands or secret generation.
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -69,7 +70,7 @@ export async function stageBootstrap({destination,sourceRun,sourceCommit,artifac
  const assets=await api('releases/'+release.id+'/assets?per_page=100');
  if(!Array.isArray(assets)||assets.length!==2||new Set(assets.map(a=>a.name)).size!==2)throw Error('Unexpected private archive asset set');
  const metadata=assets.find(a=>a.name==='archive.json'),zip=assets.find(a=>a.name==='sealed-'+run.id+'.zip');
- validAsset(metadata,16384);validAsset(zip,250*1024*1024);
+ validAsset(metadata,16384);validAsset(zip,MAX_ARCHIVE_BYTES);
  // Check the pinned toolchain too; do not relax the normal package policy for bootstrap.
  for(const name of Object.keys(sourcePolicy.sourceFileHashes)){
   const file=await api('contents/'+name+'?ref='+sourceCommit);
