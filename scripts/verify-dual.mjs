@@ -35,7 +35,7 @@ async function main(){
       const base=target==='cn'?'https://stefanzhang.cn':evidence.comBase;
       const full=target==='cn'||base==='https://stefanzhang.com';
       // CN checks every file and legacy route over the real overseas path. The
-      // command budget is distinct from the unchanged per-request deadlines.
+      // command budget is distinct from the bounded, size-aware request deadlines.
       const timeout=target==='cn'?25*60*1000:10*60*1000;
       const started=Date.now();
       result.targetAttempts??={};
