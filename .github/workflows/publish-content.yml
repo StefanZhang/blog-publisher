@@ -87,6 +87,18 @@ jobs:
           path: .work/dual-publication.json
           if-no-files-found: warn
           retention-days: 90
+      - name: Retain metadata-only remote acceptance diagnostics on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dual-http-diagnostics
+          path: |
+            .work/cn/release/verified-static.json
+            .work/cn/release/verified-full.json
+            .work/com/release/verified-static.json
+            .work/com/release/verified-full.json
+          if-no-files-found: ignore
+          retention-days: 90
   readiness:
     if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.readiness_only
     runs-on: ubuntu-24.04
