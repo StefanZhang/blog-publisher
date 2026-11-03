@@ -34,3 +34,38 @@ run `41574413082` 已完整保留失败回执：COM的3319文件/1117旧地址�
 此前维护CN发布只自动验证安装身份（manifest、首页、health、www）；full检查仅适用于内容自动链路。现在同一`verify-cn.yml`对已成功的维护handoff下载其精确私有封存包，检查CN全部文件、历史/query及独立服务，scope=`maintenance-cn-online`，只含CN目标，formalCOMVerified=false。自动内容仍要求双包同source/ID集合及两站完整覆盖。CN整轮25分钟、workflow40分钟及有限单请求预算不变；不新增secret、权限、部署写入或节点程序。
 
 任何新无损版本的最终成功仍需上述正式COM和维护CN各自完整通过，不能复用旧版本3319/1117数据，也不能将安装身份当完整验收。
+
+
+## 正式COM的同包完整复验
+
+发布器 [PR #22](https://github.com/StefanZhang/blog-publisher/pull/22)、main `469f684`、CI `41652088360`（95项Node测试、6项Python ZIP测试及Nginx/工作流检查）通过。原COM包未重建或重新上传；只读 run [41652358043](https://github.com/StefanZhang/blog-publisher/actions/runs/41652358043) 完整成功：
+
+| 目标 | 封存包 | 文件 | 历史/query地址 | 失败 |
+|---|---|---:|---:|---:|
+| 正式COM | `3e413ecfab2fd86368554c2bbc6b0a287a855ff78272c0cc98ec640f4f28507c` | 4346 | 1117 | 0 |
+| Pages生产项目别名 | 同包 | 4346 | 728 | 0 |
+
+独立服务门禁在同一只读job通过。正式浏览器第二章图9实际加载968×578无损WebP，第三章首图1400×1143无损WebP；原始PNG入口1400×1143正常。浏览器图片Accept请求头抽检的两张图表和一张1600px照片均保留manifest的字节/SHA及VP8L无损编码。抽样不能替代构建中全部338原生变体的可见像素校验；该像素检查与远端全文件SHA共同构成保真证据。
+
+源图既有JPEG/WebP损伤不能通过重编码恢复；所有999当前变体共136,002,212B，存在带宽代价。真实iOS/Android、人类阅读任务、真实用户CWV未验证，不据此宣布所有图片主观清晰或性能不受影响。
+
+## CN无损维护交付（完整通过）
+
+[41653115360](https://github.com/StefanZhang/blog-publisher/actions/runs/41653115360) 已由Stefan本人批准且整个controller成功，source `9257041`、CI `41576579771`、封存 `73a7c82afdfb1a6e1c814c54dcba48183e5ba508fe69e98e5480db3151b1edc4`；固定部署 `4eb5081e-5cda-4d3e-a75a-0bc432a86827` 与预览别名各4346文件/728旧地址通过，独立服务门禁通过。独立线上 run [41654210684](https://github.com/StefanZhang/blog-publisher/actions/runs/41654210684) 自然触发并完整通过：安装身份、manifest、首页、health与2条www规则成功；maintenance-cn-online对4346文件、1117历史/query、独立服务验收通过，0失败。香港正常receiver已原子切active到 `cn-73a7c82afdfb…`，Result=success、ExecMainStatus=0；没有手动运行安装或热改代码。CN-only回执的formalCOMVerified=false表示该回执只涵盖CN，COM由上节独立正式域回执证明。
+
+本轮没有改DNS、Worker、D1、Artalk或节点程序；香港接收器继续使用已验收的固定 `05b791e` 版本和原正常定时入口。只读核对9个实际Nginx include配置无rate指令，磁盘空闲12.48GB、receiver/health timer健康。这不证明大陆用户网速；GitHub到香港与本机跨境传输只是Lab Evidence。
+
+
+## 最终版本、边界与后续发布
+
+两站均为源码 `9257041761e8b5f6b2a16672e40000f64c2eff9b`。COM Pages生产部署 `b453d4f1-0f50-4b65-97ae-bb25f8b9065b`，原发布/审批run `41579107775` 的单次502失败保留；独立完整复验 `41652358043` 成功。CN部署/交接 `41653115360`、完整验收 `41654210684` 成功，接收器固定版本仍为 `05b791edc0d49771084634cc3d4e831e1dfad850`。包与source CI见本文前述固定身份表述；两个publicationOrigin不同，不能混用ZIP或将“同源码”说成“同ZIP”。
+
+CN本次全文件阶段530,564ms、历史地址98,920ms，HTTP子进程631,992ms；这是全站批量验收，不是单页加载时间。不同网络/缓存条件下的数据不能与旧run做性能排名。未为跑绿灯重发包、自动重试或删掉失败路径。
+
+正式CN浏览器第三章图19为1400×1143无损WebP，320×568与390×844灯箱无横向溢出，两个可见操作关闭44×44、原图约88.5×44；无已记录console error。COM/CN的浏览器图片Accept抽样得到相同的完整文件SHA及VP8L位流。此处是Chrome Lab Evidence，不能代替真实移动Safari/Android或人类阅读反馈。
+
+纽约2026-11-03 09:40:48之后读取既有 [UptimeFlare](https://uptimeflare-1yd.pages.dev/)：博客与中国优化静态节点均为绿色circle-check。历史可用率不清零，状态页另外两项离线服务未在本轮诊断范围内，不据此宣称全部服务健康；未发测试告警、未改监控ID/规则。CN健康入口及定时监控保持，资源和历史路径完整性另由上述全量回执证明。
+
+后续新增源图会在隔离构建中按无损规则生成并接受全部位流、尺寸与原生可见像素检查。纯内容仍是LLM提交内容/源图PR→Stefan本人合并→两目标CI/私有归档→自动双站发布/线上检查；代码维护继续由本人批准preview/production。本次源码维护基线已固定为9257041，内容自动入口enabled=true，没有把代码维护冒充纯内容免审批。旧1224图片URL原字节保留，原始JPEG/WebP损伤只能找真实更好源图，不能靠转码、插值或生成式修复充当原图。
+
+完整原始JSON、截图、像素/作者文字证明、首次失败及后续成功报告已保存在维护者私有 `StefanBlog/services/2026-11-02/image-lossless`；公开publisher只留程序与元数据，不留博客HTML、图片、ZIP、SQL或密钥。
