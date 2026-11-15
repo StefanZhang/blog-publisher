@@ -5,7 +5,7 @@ test('shared source discovery selects the exact reviewed workflow for each targe
  try{for(const file of ['deploy.yml','build-production.yml']){
   const policy={sourceRepo:'StefanZhang/stefans_blog',controllerRepo:'StefanZhang/blog-publisher',branch:'main',sourceWorkflow:'.github/workflows/'+file};const calls=[];
   const run={id:1,status:'completed',conclusion:'success',head_branch:'main',event:'push',path:policy.sourceWorkflow,head_repository:{full_name:policy.sourceRepo},head_sha:sha};
-  const stage=sourceStage({policy,root:'/tmp',readToken:'test',ownToken:'test',request:async url=>{calls.push(url);if(url.endsWith('/branches/main'))return Response.json({commit:{sha}});assert.ok(url.includes('/actions/workflows/'+file+'/runs?'));return Response.json({workflow_runs:[run]});}});
-  assert.equal((await stage.currentRun()).path,policy.sourceWorkflow);assert.equal(calls.length,2);
+  const stage=sourceStage({policy,root:'/tmp',readToken:'test',ownToken:'test',request:async url=>{calls.push(url);if(url.endsWith('/branches/main'))return Response.json({commit:{sha}});if(url.includes('/jobs?'))return Response.json({total_count:1,jobs:[{name:'archive',status:'completed',conclusion:'success'}]});assert.ok(url.includes('/actions/workflows/'+file+'/runs?'));return Response.json({workflow_runs:[run]});}});
+  assert.equal((await stage.currentRun()).path,policy.sourceWorkflow);assert.equal(calls.length,3);
  }}finally{if(previous===undefined)delete process.env.BUILD_RUN_ID;else process.env.BUILD_RUN_ID=previous;}
 });

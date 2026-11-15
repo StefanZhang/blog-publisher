@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';import path from 'node:path';import {spawnSync} from 'node:child_process';
 import {downloadArchive} from './archive-source.mjs';
+import {latestArchivedRun} from './candidate-run.mjs';
 import {assertRun,assertRecord,assertSourceFile} from './policy.mjs';import {checkSeal} from './release/files.mjs';
 export function sourceStage({policy,root,readToken,ownToken,request=fetch}){
 async function api(endpoint,own=false,body){
@@ -11,7 +12,7 @@ async function currentRun(){
  const main=(await api('branches/main')).commit.sha;
  const selected=process.env.BUILD_RUN_ID||'latest';
  if(selected!=='latest'&&!/^\d+$/.test(selected))throw Error('Invalid build run ID');
- const run=selected==='latest'?(await api('actions/workflows/'+encodeURIComponent(policy.sourceWorkflow.split('/').at(-1))+'/runs?branch=main&status=success&per_page=30')).workflow_runs.find(r=>r.head_sha===main&&['push','workflow_dispatch'].includes(r.event)):await api('actions/runs/'+selected);
+ const run=selected==='latest'?await latestArchivedRun(api,policy,main):await api('actions/runs/'+selected);
  if(!run)return null;assertRun(run,main,policy);return run;
 }
 async function download(run){
