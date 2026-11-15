@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {assertRun} from './policy.mjs';
+import {latestArchivedRun} from './candidate-run.mjs';
 import {checkSeal} from './release/files.mjs';
 
 export const WORKFLOW = 'StefanZhang/blog-publisher/.github/workflows/deploy-likes.yml@refs/heads/main';
@@ -81,7 +82,7 @@ export async function stageApprovedSource({env, sourcePolicy, api, root, stage =
   const selected = env.BUILD_RUN_ID || 'latest';
   if (selected !== 'latest' && !/^[1-9][0-9]*$/.test(selected)) throw Error('Invalid source run ID');
   const run = selected === 'latest'
-    ? (await api('actions/workflows/deploy.yml/runs?branch=main&status=success&per_page=30')).workflow_runs?.find(r => r.head_sha === main && ['push','workflow_dispatch'].includes(r.event))
+    ? await latestArchivedRun(api,sourcePolicy,main)
     : await api('actions/runs/'+selected);
   if (!run || !COMMIT.test(main || '') || !Number.isSafeInteger(run.id) || run.id < 1) throw Error('No successful current-main source run');
   assertRun(run, main, sourcePolicy);
