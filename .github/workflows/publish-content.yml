@@ -1,5 +1,5 @@
 name: publish-content-dual
-run-name: Human-merged content → Pages and CN
+run-name: Owner-authorized content → Pages and CN
 on:
   schedule:
     - cron: '*/15 * * * *'
@@ -65,7 +65,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: .nvmrc
-      - name: Recheck human merge, publish sealed pair, and issue CN handoff
+      - name: Recheck source authorization, publish sealed pair, and issue CN handoff
         run: node scripts/content-publish.mjs publish
         env:
           GH_TOKEN: ${{ github.token }}

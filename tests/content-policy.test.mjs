@@ -17,7 +17,7 @@ test('historical routes/images, symlinks, executable uploads and truncated trees
  for(const next of [tree(base.tree.slice(0,2)),tree([base.tree[0],base.tree[1],file('assets/uploads/2025/01/a.jpg','e')]),tree([...base.tree,file('assets/uploads/x.png','a','120000')]),tree([...base.tree,file('src/content/posts/9999.md','a','100755')]),{...base,truncated:true}])assert.throws(()=>assertContentTree(base,next,policy));
  for(const f of [{filename:'src/content/posts/701.md',status:'removed'},{filename:'assets/uploads/x.png',status:'modified'},{filename:'src/content/posts/701.md',status:'renamed',previous_filename:'src/content/posts/99.md'}])assert.equal(contentChange(f),false);
 });
-test('only the exact human merge chain and CI run authorize content publishing',()=>{
+test('only the authorized account merge chain and exact CI run authorize content publishing',()=>{
  assert.doesNotThrow(()=>assertMergeApproval(proof(),run,policy));
  for(const mutate of [p=>p.chain[0].merger.id++,p=>p.chain[0].merger.type='Bot',p=>p.chain[0].parent=sha('e'),p=>p.sourceAttempt++,p=>p.chain[0].files.push({filename:'scripts/publish.mjs',status:'added'}),p=>p.chain=[],p=>p.boundaryCommit=sha('f')]){const p=proof();mutate(p);assert.throws(()=>assertMergeApproval(p,run,policy));}
 });

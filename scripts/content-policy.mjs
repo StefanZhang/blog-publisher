@@ -25,10 +25,10 @@ export function assertContentTree(baseline,current,policy) {
   }
 }
 export function assertMergeApproval(proof,run,policy) {
-  if(proof?.schema!==1||proof.sourceRepo!==SOURCE||proof.sourceCommit!==run.head_sha||proof.sourceRun!==String(run.id)||proof.sourceAttempt!==run.run_attempt||proof.boundaryCommit!==policy.baselineCommit||!Array.isArray(proof.chain)||!proof.chain.length||proof.chain.length>50)throw Error('Missing matching human-merge evidence');
+  if(proof?.schema!==1||proof.sourceRepo!==SOURCE||proof.sourceCommit!==run.head_sha||proof.sourceRun!==String(run.id)||proof.sourceAttempt!==run.run_attempt||proof.boundaryCommit!==policy.baselineCommit||!Array.isArray(proof.chain)||!proof.chain.length||proof.chain.length>50)throw Error('Missing matching owner-account merge evidence');
   let current=run.head_sha;const seen=new Set();
   for(const link of proof.chain) {
-    if(link.commit!==current||!SHA.test(link.parent||'')||seen.has(link.commit)||!Number.isSafeInteger(link.pr)||link.pr<1||!Number.isFinite(Date.parse(link.mergedAt))||link.merger?.login!==policy.merger||link.merger.id!==policy.mergerId||link.merger.type!=='User'||!Array.isArray(link.files)||!link.files.length||link.files.length>500||new Set(link.files.map(f=>f.filename)).size!==link.files.length||!link.files.every(contentChange))throw Error('Every intervening content change must be merged by the designated human');
+    if(link.commit!==current||!SHA.test(link.parent||'')||seen.has(link.commit)||!Number.isSafeInteger(link.pr)||link.pr<1||!Number.isFinite(Date.parse(link.mergedAt))||link.merger?.login!==policy.merger||link.merger.id!==policy.mergerId||link.merger.type!=='User'||!Array.isArray(link.files)||!link.files.length||link.files.length>500||new Set(link.files.map(f=>f.filename)).size!==link.files.length||!link.files.every(contentChange))throw Error('Every intervening content change requires a merge by the authorized account');
     seen.add(link.commit);current=link.parent;
   }
   if(current!==policy.baselineCommit)throw Error('Unreviewed history between baseline and content PR');
