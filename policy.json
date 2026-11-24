@@ -27,18 +27,21 @@
     ".nvmrc": "9185b9f67843cabfa8054f65ce47ce0b52036b0bfe07ae5a6b834d97cc127140",
     "package-lock.json": "6ba512261e14b66c3c744d8dccd706217f2441cd8fd5b1d8d2e55f33f0620fdc",
     "scripts/optimize-images.mjs": "3a1e59b48628c0eb4a09abbf4240dcd43655188e62ef7e58a28e853943e2ffe7",
-    ".github/workflows/deploy.yml": "ba697c993eca77a498cfb9482f2820e25def6748785987eff7ce45a185aafc15",
-    "scripts/release/archive.mjs": "2c4f3b4d26b5778b49697e5d9840a823ea6f72defbf94cbeb543006681bd6700",
-    "scripts/lib/release-archive.mjs": "3fc157cbcf3b16d79a1d17bad2a456aa72f578fb7601017ab51e739cfa5da2c3",
+    ".github/workflows/deploy.yml": "2d33a070a1ff745ed13991600d24091b5bda3f272e2d80b9a2cbda98b58dabe2",
+    "scripts/release/archive.mjs": "264eba41f48ed3857beb9a5d2c76ab545d94aaa0cbc1d4fddd58dcb7d643f0d2",
+    "scripts/lib/release-archive.mjs": "d32f9c498b5220e9672f1356fa9d6818d3aa50bec30ffb9ba9a179119cbfe332",
     "scripts/check-source-images.mjs": "772bee410a0ff3abf66cd9e2e119f5bfbb9fdefd7daf7be591b68583510d8f58",
     "scripts/check-notes-images.mjs": "296afd6b7641057c484978ea80bbb371e1f5353f88d6988588b9ad98aa1c0181",
     "scripts/lib/notes-images.mjs": "0fd2af54b5ef519e0924954546f677ee80a3fda4f972e3097e4f3e3a4563b65e",
-    ".github/workflows/build-production.yml": "141629b5db929231ea38f163a42ba1a9831de7f4d8a72c82cf847fbdc79da07a",
-    "scripts/release/content-approval.mjs": "f9f8fc9bdfe77512b1f3755bec0a0e1d495765500549da98f741c7adc4f9252f",
+    ".github/workflows/build-production.yml": "0ab429cb5b7aedb3a5ff51a13ba9b983e4c300cbf18aa80e763130d28fcd1d27",
+    "scripts/release/content-approval.mjs": "bb62c657867034af3ec8bdee370ef396257907ce70ab47f7048b778a96d8025e",
     "scripts/release/prepare.mjs": "016d2b6942e0cc9f5f18dd5ae36e04bb8dde026a2d848f45d6b9d6ac19208e05",
     "package.json": "176db6040e01d30645ba8c9cc3534e1086186fd54c2185118cdb2f7b56a1bef3",
     "scripts/check-image-identities.mjs": "579a6fec138b0a43d42850b97cf479ad42b90d3b3f1876de83fdd01c06e9257d",
     "scripts/check-image-fidelity.mjs": "9f2244f13993edd7fcd16728004d0638631fa1809135cab6c6cee33452bb97e8",
-    "scripts/lib/image-compat.mjs": "001ee6c233b182632d5607bac72615fedab60323bd6393022f681d5e3e5a19f0"
+    "scripts/lib/image-compat.mjs": "001ee6c233b182632d5607bac72615fedab60323bd6393022f681d5e3e5a19f0",
+    ".github/actions/check-sealed-site/action.yml": "113ff9b1b929be926457d0f6c806af44227c9902faee277c0d1d24381e7137c7",
+    "scripts/release/merge-content.mjs": "edff80dd19b0428909f19677604b48b787b435d4cf65cb1a603b90a3e86bd7f1",
+    "scripts/release/release-zip.py": "d00776ceef9d54902cb3edffa06d5335da076a421fd8125cef19174c00751f25"
   }
 }

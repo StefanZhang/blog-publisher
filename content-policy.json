@@ -1,8 +1,9 @@
 {
   "schema": 1,
   "enabled": true,
-  "baselineCommit": "124e8c20e38a6a8607b6ac264ad7e21e998cac60",
-  "codeTreeSHA256": "0b05243df1c6b32b1076d04fdaab9b439956bf5ead37a4b987f5e5f237b1cdb3",
+  "baselineCommit": "717f08ae282066905ec7c3fb3115b9c00b41dbbf",
+  "chapterMigrationCommit": "717f08ae282066905ec7c3fb3115b9c00b41dbbf",
+  "codeTreeSHA256": "95fb02bf91cbf66a5a30da771eb021e2a89d1ea4679976b8fb704867128305b2",
   "merger": "StefanZhang",
   "mergerId": 10293941,
   "comVerificationBase": "https://stefanzhang.com"

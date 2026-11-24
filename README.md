@@ -4,7 +4,7 @@ This public repository contains only trusted publishing code. Blog content, imag
 
 ## 人与 LLM 的日常流程
 
-新流程见 [CONTENT-PUBLICATION.md](docs/CONTENT-PUBLICATION.md)：LLM 提交纯内容 PR → Stefan 本人审阅合并 → 两目标 main CI 和私有归档 → 自动预览验收 → Pages / 香港发布 → 独立线上验收。`content-policy.json.enabled` 决定是否启用；接入验收前保持关闭。GitHub schedule 每15分钟检查，可能延迟。
+新流程见 [CONTENT-PUBLICATION.md](docs/CONTENT-PUBLICATION.md)：LLM 提交纯内容 PR → 两套 PR CI 通过后由授权本地入口合并 → 两目标 main CI 和私有归档 → 自动预览验收 → Pages / 香港发布 → 独立线上验收。`content-policy.json.enabled` 决定是否启用；接入验收前保持关闭。GitHub schedule 每15分钟检查，可能延迟。
 
 代码、配置、服务升级仍使用原人工审批工作流；自动内容入口不降低旧环境的审批规则。正式 `.com` DNS 切换是独立步骤，Pages 项目验收不能冒充正式域验收。
 
@@ -13,7 +13,7 @@ This public repository contains only trusted publishing code. Blog content, imag
 - main 受保护：PR、成功的 `check`，禁止强推/删除并包含管理员。仅维护者可写本控制仓库；单人维护不要求作者给自己的 PR 做不可能的自我批准，CODEOWNERS仅为审阅路由。
 - `preview` Environment：仅 protected branches，StefanZhang 为 required reviewer，禁止管理员 bypass。允许 Stefan 批准自己手动发起的 run；日常 Agent 使用独立身份，不能是 Stefan 的 owner 会话。
 - repository secret `SOURCE_READ_TOKEN`：仅私有博客仓库，Actions **Read-only** 和 Contents **Read-only** 的 fine-grained PAT，不含写入、管理或其他仓库。设置到这里，不能设到博客仓库。
-- `preview` Environment secrets：`CLOUDFLARE_ACCOUNT_ID`、仅目标账户 **Cloudflare Pages Edit** 的 `CLOUDFLARE_API_TOKEN`。不要使用 Global API Key、GitHub owner OAuth 或临时 Wrangler OAuth 充当长期 CI secret。Pages 权限是账户级，`--branch`不是 IAM 隔离；维护入口仍需人批准。自动纯内容入口由完整源码基线、本人合并证明、受保护发布器和独立环境约束。
+- `preview` Environment secrets：`CLOUDFLARE_ACCOUNT_ID`、仅目标账户 **Cloudflare Pages Edit** 的 `CLOUDFLARE_API_TOKEN`。不要使用 Global API Key、GitHub owner OAuth 或临时 Wrangler OAuth 充当长期 CI secret。Pages 权限是账户级，`--branch`不是 IAM 隔离；维护入口仍需人批准。自动纯内容入口由完整源码基线、指定账号的合并证据、受保护发布器和独立环境约束。
 - 代码维护与日常 LLM 分离：默认日常Agent对本仓库没有Actions/Contents写权限，轮询已能请求preview。若另行授权独立bot触发，必须验证它不是required reviewer；不要把Stefan本人签发的Actions-write PAT交给Agent，它仍代表Stefan，不能靠token名称或窄权限宣称无法审批。推荐独立App/bot只限私有源码库，日常Agent不持有owner会话。
 - 所有 secrets 通过 GitHub 设置界面/受控 CLI 写入，不贴在聊天、issue或日志里。记录 token 到期日，在到期前由维护者轮换并重跑预览。
 

@@ -1,20 +1,22 @@
 # 一次合并，自动发布两站
 
-这是 2026-11-02 用户明确批准的新日常流程；旧文档中“每次 preview/production 人工审批”仍适用于**代码/配置/服务维护**，不适用于启用后的纯内容入口。
+纯内容使用所有者授权的本地合并入口。代码、配置和服务维护使用独立的发布工作流与环境审批。
 
 ## 日常维护者和 LLM
 
 1. LLM 在私库 `StefanZhang/stefans_blog` 创建分支、修改正文 HTML 和新增本地源图片、提交 PR；不直接推 main，不改发布器，不持有部署、SSH、DNS、D1 或 owner 凭据。
-2. 两份 PR CI 都通过后，**Stefan 本人确认内容并 squash merge 或 merge commit**。不使用 rebase merge。GitHub 证据能确认账号身份，不能确认操作账号的是人还是 agent；因此不能把 Stefan 的 owner token 交给日常 LLM。
-3. main CI 从同一个源码 commit 分别构建 `.com` 和 `.cn` 封存包。两包目标域不同，不是一个 ZIP 改域；两份完整检查和私有 Release 归档都成功才有资格发布。
-4. `publish-content-dual` 每15分钟检查一次；GitHub schedule 可能延迟。无变化退出，不要求每天点审批。受保护的固定发布器检查人类合并证据、整棵非内容源码树的固定摘要、私有包 SHA、工具链、控制文件、两包 commit 和文章 ID 集合。
+2. 两份可信 PR CI 均通过后，使用私库的 `scripts/release/merge-content.mjs` 入口合并该 PR。入口核对待发 head 与当前 main，使用已授权账号操作。Stefan 也可在 GitHub 使用 squash merge 或 merge commit。凭据留在本地受控环境，发布器仅持有私库读权限。
+3. main CI 从同一个源码 commit 分别构建 `.com` 和 `.cn`。每套候选归档作业在本机验收后直接写入源码私库 Release，再下载核对 ZIP。两套作业都成功后，发布器按运行编号、重试次数、源码提交和 SHA-256 读取各自的包。
+4. `publish-content-dual` 每15分钟检查一次；GitHub schedule 可能延迟。无变化退出，不要求每天点审批。受保护的固定发布器检查指定账号的合并记录、整棵非内容源码树的固定摘要、私有包 SHA、工具链、控制文件、两包 commit 和文章 ID 集合。
 5. 如有新文章 ID，先以固定已审阅 Worker 代码更新 known-ids（不改 SALT、数据库、schema、路由、定时清理）；ID 不变则不上传 Worker。之后分别做两包固定预览和 alias 的完整资源/历史路径验收、noindex 和互动服务检查。
 6. 上传原 `.com` 封存包到 Pages main，逐文件检查；通过后把 `.cn` 固定预览、manifest、来源和 hash 交给香港接收器。接收器等待整个发布 run 成功，匿名取回并验证文件，原子切换站点目录。无 SSH 发布密钥。
 7. 独立的 `CN installation identity` 工作流等待香港安装身份，再逐文件检查两站、历史/query URL 和互动服务；查看 `dual-online-<run>` 回执 `passed=true` 才表示本次两目标验收成功。
 
-自动流程不会向 GitHub “代点批准”。它使用单独的 `content-auto` Environment：仅受保护 main，禁止管理员 bypass，无 required reviewer。原 `preview` / `production` 人工审批环境保持原样。合并 PR 是日常的人类发布决定。
+自动流程不会向 GitHub “代点批准”。它使用单独的 `content-auto` Environment：仅受保护 main，禁止管理员 bypass，无 required reviewer。原 `preview` / `production` 人工审批环境保持原样。本地合并入口与手动合并共用同一套发布资格校验。
 
 ## 当前接入状态与边界
+
+第 20 号内容 PR 合并后，旧流程在上传环节中断。为恢复这一次发布，`chapterMigrationCommit` 仅可钉住紧接该合并的归档维护提交，并须与当前维护基线相同。两套源码 CI 重新向 GitHub 读取原 PR 的合并账号、第一父提交及每一个变动文件，分别把证明封入各自的私有归档。发布器另行从 Git 树核对原 PR 的 111 项新增文件，逐项比较维护提交与原合并，仅容许列出的归档和本地合并工具相关文件发生变动。它随后执行普通双站发布的全部验收与回执流程。后续维护基线没有这次首发资格。
 
 `content-policy.json.enabled` 是唯一启用开关；为 false 时不发布。首次启用前须完成下述接入验收。`.com` 正式 DNS 尚未切换时，`comVerificationBase` 必须是 `https://stefanzhang-com.pages.dev`，回执 `formalCOMVerified=false`；不能称正式 `.com` 已更新。正式切域需独立备份/回退/验收，随后经 PR 把该字段改为正式域。`.cn` 使用现有香港入口，不改 DNS。
 
@@ -65,5 +67,5 @@ gh workflow run publish-content.yml -R StefanZhang/blog-publisher --ref main -f 
 
 - 源 main `ce9ea98` 的 CN CI/私有归档 `41531650556`、COM CI/私有归档 `41531650316` 均成功。
 - 只读集成 run [41534117764](https://github.com/StefanZhang/blog-publisher/actions/runs/41534117764) 成功：两个真实归档及合并凭证、固定源码策略、Pages 项目/主分支、Worker 版本和124个现有 ID 健康全部通过；部署/DNS写入为0。
-- 在上述证据完成后通过独立 PR 将 enabled 设为 true；源 baseline 本身不是新的内容 PR，启用不会凭空重发维护版本。以后本人合并纯内容 PR 后，等待两目标 CI/归档与定时发现，不再点 preview/production。
+- 在上述证据完成后通过独立 PR 将 enabled 设为 true；源 baseline 本身不是新的内容 PR，启用不会凭空重发维护版本。以后通过授权入口合并纯内容 PR 后，等待两目标 CI/归档与定时发现，不再点 preview/production。
 - 正式 `.com` DNS 已切到 Pages，`comVerificationBase` 已经 reviewed PR 改为正式域；`.cn` 同一维护源码已安装。切换、失败项与回退记录见 [COM-2026-11-02](cutovers/COM-2026-11-02.md)。第一条真实内容 PR #12 已由 Stefan 本人合并为 `2ba81cd`；自然 schedule run `41570766257` 完成双站自动发布，独立 run `41578061932` 各验3319文件/1117历史query、0失败且formalCOMVerified=true。此前超时失败与后续修复保留在 LOSSLESS-DELIVERY.md；日常链路已获该版本的完整实证，后续版本仍须重新验收。

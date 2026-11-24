@@ -5,6 +5,8 @@ import {pathToFileURL} from 'node:url';
 import {sourceStage} from './source-stage.mjs';
 import {readProtection,verifyControllerChecks} from './protection.mjs';
 import {assertAutoContext,assertAutoEnvironment,assertContentTree,assertMergeApproval,assertPair,assertRemoteCoverage} from './content-policy.mjs';
+import {isChapterMigration,originalChapterChanges,assertOriginalChapterApproval} from './chapter-migration.mjs';
+import {assertReadinessApproval} from './content-readiness.mjs';
 import {canonicalIds,assertLikesPolicy,prepareWorker,publishWorker,verifyReadiness,execute} from './likes-deploy.mjs';
 import {readCommentPageKeys,verifyServices} from './services.mjs';
 import {publicReceipt,deploymentOrigin} from './receipt.mjs';
@@ -34,10 +36,12 @@ export async function main(env=process.env) {
   async function protect(){assertAutoEnvironment(await readProtection(env.GH_TOKEN,REPO),await api('environments/content-auto',true),env.GITHUB_SHA);await verifyControllerChecks(env.GH_TOKEN,REPO,env.GITHUB_SHA);}
   await protect();
   const sourceCommit=(await api('branches/main')).commit.sha;
-  if(sourceCommit===config.baselineCommit){await summary(env,'Reviewed baseline itself is not a new content PR. Nothing deployed.');await output(env,{eligible:false});return;}
+  const chapterMigration=isChapterMigration(config,sourceCommit);
+  if(sourceCommit===config.baselineCommit&&!chapterMigration){await summary(env,'Reviewed baseline itself is not a new content PR. Nothing deployed.');await output(env,{eligible:false});return;}
   if(mode==='publish'&&sourceCommit!==env.EXPECTED_SOURCE)throw Error('Source changed since inspection');
   async function tree(commit){const c=await api('git/commits/'+commit);if(c.sha!==commit||!/^[a-f0-9]{40}$/.test(c.tree?.sha||''))throw Error('Invalid Git tree identity');const t=await api('git/trees/'+c.tree.sha+'?recursive=1');if(t.sha!==c.tree.sha)throw Error('Git tree mismatch');return t;}
-  const [baseline,current]=await Promise.all([tree(config.baselineCommit),tree(sourceCommit)]);
+  const baselineTree=tree(config.baselineCommit);
+  const [baseline,current]=await Promise.all([baselineTree,chapterMigration?baselineTree:tree(sourceCommit)]);
   try{assertContentTree(baseline,current,config);}catch(error){if(mode==='publish')throw error;await summary(env,'Automatic publication blocked: '+error.message);await output(env,{eligible:false});return;}
   const runs={cn:await stages.cn.currentRun(),com:await stages.com.currentRun()};
   if(!runs.cn||!runs.com){if(mode==='publish')throw Error('Both target builds must remain successful');await summary(env,'Waiting for both current-main CI builds and private archives.');await output(env,{eligible:false});return;}
@@ -45,18 +49,28 @@ export async function main(env=process.env) {
   const prior=await api('deployments?environment=dual-request&per_page=100',true);
   const duplicate=prior.find(d=>{const p=typeof d.payload==='string'?JSON.parse(d.payload):d.payload;return p?.sourceCommit===sourceCommit;});
   if(mode==='inspect'&&duplicate&&env.RETRY!=='true'){await summary(env,'This source commit already has a publication attempt. Check its final online result; explicit retry required after failure.');await output(env,{eligible:false});return;}
+  if(mode==='inspect'&&chapterMigration&&duplicate){
+    const statuses=await api('deployments/'+duplicate.id+'/statuses?per_page=1',true);
+    if(!['failure','error'].includes(statuses[0]?.state)){await summary(env,'Original chapter migration already requested. Retry requires a failed publication.');await output(env,{eligible:false});return;}
+  }
+  const originalFiles=chapterMigration?await originalChapterChanges({api,readTree:tree,currentTree:current,config,commit:sourceCommit}):null;
   const packages={};
   for(const target of ['cn','com']) {
     packages[target]=await stages[target].download(runs[target]);
-    assertMergeApproval(await readJSON(path.join(packages[target].release,'reports/merge-approval.json')),runs[target],config);
+    const report=name=>readJSON(path.join(packages[target].release,'reports',name));
+    const proof=await report('merge-approval.json');
+    if(chapterMigration){
+      assertReadinessApproval(proof,runs[target],config);
+      assertOriginalChapterApproval(await report('wardley-merge-approval.json'),runs[target],config,originalFiles);
+    } else assertMergeApproval(proof,runs[target],config);
   }
   assertPair(packages.cn.record,packages.com.record);
   const identity={sourceCommit,cnRun:String(runs.cn.id),comRun:String(runs.com.id),cnHash:packages.cn.record.artifactHash,comHash:packages.com.record.artifactHash};
   if(mode==='inspect') {
-    const ledger=await api('deployments',true,{ref:env.GITHUB_SHA,environment:'dual-request',auto_merge:false,required_contexts:[],transient_environment:true,payload:identity,description:'Human-merged content: paired builds awaiting automated acceptance'});
+    const ledger=await api('deployments',true,{ref:env.GITHUB_SHA,environment:'dual-request',auto_merge:false,required_contexts:[],transient_environment:true,payload:identity,description:'Owner-authorized content: paired builds awaiting automated acceptance'});
     await api('deployments/'+ledger.id+'/statuses',true,{state:'queued',log_url:'https://github.com/'+REPO+'/actions/runs/'+env.GITHUB_RUN_ID,description:'Content/tree/merge provenance checked; publication pending'});
     await output(env,{eligible:true,...identity,ledgerId:ledger.id});
-    await summary(env,'Human-merged content accepted. Source '+sourceCommit+'. Two sealed target packages; no rebuild.');return;
+    await summary(env,'Owner-authorized content accepted. Source '+sourceCommit+'. Two sealed target packages; no rebuild.');return;
   }
   if(env.CN_HASH!==identity.cnHash||env.COM_HASH!==identity.comHash||env.CN_RUN!==identity.cnRun||env.COM_RUN!==identity.comRun)throw Error('Inspected paired package identity changed');
   if(!/^[a-f0-9]{32}$/.test(env.CLOUDFLARE_ACCOUNT_ID||'')||!env.CLOUDFLARE_API_TOKEN||!env.CLOUDFLARE_LIKES_API_TOKEN)throw Error('Missing content-auto environment credentials');
